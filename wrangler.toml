@@ -5,4 +5,4 @@ compatibility_date = "2026-09-17"
 [[d1_databases]]
 binding = "DB"
 database_name = "oraculum-data"
-database_id = "REPLACE_WITH_D1_DATABASE_ID"
+database_id = "db13fb9b-26c5-4591-88ab-5f249b1b0089"
