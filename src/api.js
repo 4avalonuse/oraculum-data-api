@@ -7,6 +7,8 @@ const JSON_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization'
 };
 
+const MIN_HISTORY_BARS = 10000;
+
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: JSON_HEADERS });
 }
@@ -56,8 +58,9 @@ export async function handleApi(request, env) {
       'SELECT COUNT(*) AS count FROM candles WHERE dataset_id = ?'
     ).bind(id).first();
 
+    const existingCount = Number(existing?.count || 0);
     const shouldRefresh = url.searchParams.get('refresh') === '1';
-    const shouldBootstrap = Number(existing?.count || 0) === 0;
+    const shouldBootstrap = existingCount < MIN_HISTORY_BARS;
 
     if (shouldRefresh || shouldBootstrap) {
       const report = await ingestDataset(env.DB, {
@@ -66,7 +69,10 @@ export async function handleApi(request, env) {
         symbol: dataset.symbol,
         interval: dataset.interval
       });
-      console.log(JSON.stringify({ event: shouldRefresh ? 'manual_ingestion' : 'dataset_bootstrap', report }));
+      console.log(JSON.stringify({
+        event: shouldRefresh ? 'manual_ingestion' : 'dataset_history_backfill',
+        report
+      }));
     }
 
     const result = await env.DB.prepare(
