@@ -12,15 +12,9 @@ export async function ingestDataset(db, dataset) {
   let result;
 
   try {
-    let historyBars = 1000;
-
-    if (dataset.provider === 'binance') {
-      const countResult = await db.prepare(
-        'SELECT COUNT(*) AS count FROM candles WHERE dataset_id = ?'
-      ).bind(dataset.id).first();
-      const existingBars = Number(countResult?.count || 0);
-      historyBars = existingBars > 0 ? 1000 : 9000;
-    }
+    // Keep the request bounded and fast for the Worker. Historical
+    // backfill can be added separately without blocking the chart.
+    const historyBars = 1000;
 
     result = await fetcher({
       symbol: dataset.symbol,
