@@ -5,6 +5,13 @@ compatibility_date = "2026-09-17"
 [triggers]
 crons = []
 
+[observability]
+enabled = true
+head_sampling_rate = 1
+
+[observability.logs]
+invocation_logs = true
+
 [[d1_databases]]
 binding = "DB"
 database_name = "oraculum-data"
