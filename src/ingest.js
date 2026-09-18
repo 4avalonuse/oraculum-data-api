@@ -12,9 +12,20 @@ export async function ingestDataset(db, dataset) {
   let result;
 
   try {
+    let historyBars = 1000;
+
+    if (dataset.provider === 'binance') {
+      const countResult = await db.prepare(
+        'SELECT COUNT(*) AS count FROM candles WHERE dataset_id = ?'
+      ).bind(dataset.id).first();
+      const existingBars = Number(countResult?.count || 0);
+      historyBars = existingBars > 0 ? 1000 : 9000;
+    }
+
     result = await fetcher({
       symbol: dataset.symbol,
-      interval: dataset.interval
+      interval: dataset.interval,
+      historyBars
     });
   } catch (error) {
     await db.prepare(
@@ -38,7 +49,7 @@ export async function ingestDataset(db, dataset) {
     result.provider,
     result.symbol,
     fetchedAt,
-    JSON.stringify(result.raw),
+    'ok' === 'ok' ? JSON.stringify(result.raw) : null,
     result.rows.length,
     normalized.candles.length,
     normalized.rejected.length
