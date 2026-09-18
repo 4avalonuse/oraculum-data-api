@@ -3,6 +3,7 @@ import { fetchBinance } from './providers/binance.js';
 import { normalizeCandles } from './normalize.js';
 
 const providers = { yahoo: fetchYahoo, 'binance-us': fetchBinance };
+const MAX_HISTORY_BARS = 10000;
 
 export async function ingestDataset(db, dataset) {
   const fetcher = providers[dataset.provider];
@@ -12,10 +13,13 @@ export async function ingestDataset(db, dataset) {
   let result;
 
   try {
-    // Keep the request bounded and fast for the Worker. Historical
-    // backfill can be added separately without blocking the chart.
     const existing = await db.prepare('SELECT COUNT(*) AS count FROM candles WHERE dataset_id = ?').bind(dataset.id).first();
-    const historyBars = Number(existing?.count || 0) === 0 ? 10000 : 1000;
+    const existingCount = Number(existing?.count || 0);
+
+    // If a dataset was bootstrapped before historical backfill existed, keep
+    // extending it until the full historical target is present. Once the
+    // target is reached, normal refreshes only fetch the latest 1000 bars.
+    const historyBars = existingCount < MAX_HISTORY_BARS ? MAX_HISTORY_BARS : 1000;
 
     result = await fetcher({
       symbol: dataset.symbol,
