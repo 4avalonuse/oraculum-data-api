@@ -49,7 +49,7 @@ export async function ingestDataset(db, dataset) {
     result.provider,
     result.symbol,
     fetchedAt,
-    'ok' === 'ok' ? JSON.stringify(result.raw) : null,
+    JSON.stringify(result.raw),
     result.rows.length,
     normalized.candles.length,
     normalized.rejected.length
