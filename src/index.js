@@ -51,11 +51,11 @@ async function ensureSchema(db) {
     'btc-usdt-binance', 'Bitcoin / USDT', 'binance', 'BTCUSDT', '1h', 'USDT',
     'Bitcoin hourly OHLCV from Binance Spot', now, now
   ).run();
-\n}
+}
 
 function authorized(request, env) {
   if (!env.INGEST_TOKEN) return false;
-  const token = request.headers.get('Authorization')?.replace(/^Bearer\\s+/i, '');
+  const token = request.headers.get('Authorization')?.replace(/^Bearer\s+/i, '');
   return token === env.INGEST_TOKEN;
 }
 
