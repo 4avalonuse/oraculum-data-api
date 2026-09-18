@@ -1,6 +1,5 @@
 import { ensureSchema } from './db.js';
 import { handleApi, JSON_HEADERS } from './api.js';
-import { ingestAll } from './ingest.js';
 
 export default {
   async fetch(request, env) {
@@ -21,15 +20,5 @@ export default {
         headers: JSON_HEADERS
       });
     }
-  },
-
-  async scheduled(controller, env) {
-    await ensureSchema(env.DB);
-    const reports = await ingestAll(env.DB);
-    console.log(JSON.stringify({
-      event: 'scheduled_ingestion',
-      cron: controller.cron,
-      reports
-    }));
   }
 };
