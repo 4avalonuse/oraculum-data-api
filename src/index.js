@@ -32,7 +32,26 @@ async function ensureSchema(db) {
   await db.prepare(
     'CREATE INDEX IF NOT EXISTS idx_raw_ingestions_dataset_fetched ON raw_ingestions(dataset_id, fetched_at DESC)'
   ).run();
-}
+  
+  const now = Date.now();
+  await db.prepare(
+    `INSERT OR IGNORE INTO datasets
+     (id, name, provider, symbol, kind, interval, currency, description, created_at, updated_at)
+     VALUES (?, ?, ?, ?, 'ohlcv', ?, ?, ?, ?, ?)`
+  ).bind(
+    'btc-usd-yahoo', 'Bitcoin / USD', 'yahoo', 'BTC-USD', '1d', 'USD',
+    'Bitcoin daily OHLCV from Yahoo Finance', now, now
+  ).run();
+
+  await db.prepare(
+    `INSERT OR IGNORE INTO datasets
+     (id, name, provider, symbol, kind, interval, currency, description, created_at, updated_at)
+     VALUES (?, ?, ?, ?, 'ohlcv', ?, ?, ?, ?, ?)`
+  ).bind(
+    'btc-usdt-binance', 'Bitcoin / USDT', 'binance', 'BTCUSDT', '1h', 'USDT',
+    'Bitcoin hourly OHLCV from Binance Spot', now, now
+  ).run();
+\n}
 
 function authorized(request, env) {
   if (!env.INGEST_TOKEN) return false;
