@@ -86,7 +86,7 @@ export async function handleApi(request, env) {
         kind: freshDataset.kind,
         interval: freshDataset.interval,
         currency: freshDataset.currency,
-        sourceName: freshDataset.provider === 'yahoo' ? 'Yahoo Finance' : freshDataset.provider === 'binance' ? 'Binance' : freshDataset.provider,
+        sourceName: freshDataset.provider === 'yahoo' ? 'Yahoo Finance' : freshDataset.provider === 'binance' ? 'Binance' : freshDataset.provider === 'binance-us' ? 'Binance.US' : freshDataset.provider,
         updatedAt: freshDataset.updated_at
       }
     });
