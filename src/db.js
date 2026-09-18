@@ -1,4 +1,7 @@
-export async function ensureSchema(db) {
+let schemaReady = false;
+let schemaPromise = null;
+
+async function initializeSchema(db) {
   await db.prepare(`
     CREATE TABLE IF NOT EXISTS raw_ingestions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -74,8 +77,6 @@ export async function ensureSchema(db) {
     },
   ];
 
-  await db.prepare("DELETE FROM datasets WHERE id IN ('btc-usdt-binance', 'btc-usdt-binance-1m', 'btc-usdt-binance-1h', 'btc-usdt-binance-1d', 'btc-usdt-binance-1w', 'btc-usdt-binance-1M', 'btc-usd-yahoo')").run();
-
   for (const d of datasets) {
     await db.prepare(
       `INSERT OR IGNORE INTO datasets
@@ -85,4 +86,20 @@ export async function ensureSchema(db) {
       d.id, d.name, d.provider, d.symbol, d.interval, d.currency, d.description, now, now
     ).run();
   }
+}
+
+
+export async function ensureSchema(db) {
+  if (schemaReady) return;
+  if (!schemaPromise) {
+    schemaPromise = initializeSchema(db)
+      .then(() => {
+        schemaReady = true;
+      })
+      .catch((error) => {
+        schemaPromise = null;
+        throw error;
+      });
+  }
+  return schemaPromise;
 }
