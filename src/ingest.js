@@ -86,7 +86,7 @@ export async function ingestAll(db) {
   const result = await db.prepare(
     `SELECT id, provider, symbol, interval
      FROM datasets
-     WHERE provider IN ('yahoo', 'binance')
+     WHERE provider IN ('yahoo', 'binance-us')
      ORDER BY id`
   ).all();
 
