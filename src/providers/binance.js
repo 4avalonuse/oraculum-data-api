@@ -1,8 +1,5 @@
 const BASE_URLS = [
-  'https://api.binance.us/api/v3/klines',
-  'https://data-api.binance.vision/api/v3/klines',
-  'https://api.binance.com/api/v3/klines',
-  'https://api1.binance.com/api/v3/klines'
+  'https://api.binance.us/api/v3/klines'
 ];
 const PAGE_SIZE = 1000;
 const MAX_INITIAL_BARS = 1000;
@@ -74,9 +71,9 @@ export async function fetchBinance({ symbol, interval, historyBars = PAGE_SIZE }
     .slice(-target);
 
   return {
-    provider: 'binance',
+    provider: 'binance-us',
     symbol: String(symbol).toUpperCase(),
-    currency: 'USDT',
+    currency: 'USD',
     raw,
     rows: raw.map((kline) => ({
       timestamp: Number(kline[0]),
