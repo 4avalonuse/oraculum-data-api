@@ -90,6 +90,16 @@ export default {
         const result = await env.DB.prepare(
           'SELECT id, name, provider, symbol, kind, interval, currency, description, updated_at FROM datasets ORDER BY name'
         ).all();
+
+        // Bootstrap the first market data load. The hourly cron remains the
+        // normal ingestion path, but a brand-new deployment should not leave
+        // OChart with an empty chart until the first cron tick.
+        const candleCount = await env.DB.prepare('SELECT COUNT(*) AS count FROM candles').first();
+        if (Number(candleCount?.count || 0) === 0 && (result.results || []).length) {
+          const reports = await ingestAll(env.DB);
+          console.log(JSON.stringify({ event: 'bootstrap_ingestion', reports }));
+        }
+
         return json({ ok: true, data: result.results || [] });
       }
 
