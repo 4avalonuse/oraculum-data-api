@@ -22,15 +22,11 @@ export async function ensureSchema(db) {
 
   const now = Date.now();
   const datasets = [
-    {
-      id: 'btc-usd-yahoo',
-      name: 'Bitcoin / USD · Yahoo Finance',
-      provider: 'yahoo',
-      symbol: 'BTC-USD',
-      interval: '1d',
-      currency: 'USD',
-      description: 'Bitcoin daily OHLCV from Yahoo Finance'
-    },
+    { id: 'btc-usd-yahoo-1m', name: 'Bitcoin / USD · Yahoo Finance · 1m', provider: 'yahoo', symbol: 'BTC-USD', interval: '1m', currency: 'USD', description: 'Bitcoin minute OHLCV from Yahoo Finance' },
+    { id: 'btc-usd-yahoo-1h', name: 'Bitcoin / USD · Yahoo Finance · 1h', provider: 'yahoo', symbol: 'BTC-USD', interval: '1h', currency: 'USD', description: 'Bitcoin hourly OHLCV from Yahoo Finance' },
+    { id: 'btc-usd-yahoo-1d', name: 'Bitcoin / USD · Yahoo Finance · 1d', provider: 'yahoo', symbol: 'BTC-USD', interval: '1d', currency: 'USD', description: 'Bitcoin daily OHLCV from Yahoo Finance' },
+    { id: 'btc-usd-yahoo-1w', name: 'Bitcoin / USD · Yahoo Finance · 1w', provider: 'yahoo', symbol: 'BTC-USD', interval: '1w', currency: 'USD', description: 'Bitcoin weekly OHLCV from Yahoo Finance' },
+    { id: 'btc-usd-yahoo-1M', name: 'Bitcoin / USD · Yahoo Finance · 1M', provider: 'yahoo', symbol: 'BTC-USD', interval: '1M', currency: 'USD', description: 'Bitcoin monthly OHLCV from Yahoo Finance' },
     {
       id: 'btc-usd-binance-us-1m',
       name: 'Bitcoin / USD · Binance.US · 1m',
@@ -78,7 +74,7 @@ export async function ensureSchema(db) {
     },
   ];
 
-  await db.prepare("DELETE FROM datasets WHERE id IN ('btc-usdt-binance', 'btc-usdt-binance-1m', 'btc-usdt-binance-1h', 'btc-usdt-binance-1d', 'btc-usdt-binance-1w', 'btc-usdt-binance-1M')").run();
+  await db.prepare("DELETE FROM datasets WHERE id IN ('btc-usdt-binance', 'btc-usdt-binance-1m', 'btc-usdt-binance-1h', 'btc-usdt-binance-1d', 'btc-usdt-binance-1w', 'btc-usdt-binance-1M', 'btc-usd-yahoo')").run();
 
   for (const d of datasets) {
     await db.prepare(
