@@ -55,3 +55,20 @@ Durante o deploy, o Worker também cria a tabela `raw_ingestions` de forma idemp
 ## Regra arquitetural
 
 Providers externos não são a API pública. O OChart conversa com a Data API, e a Data API conversa com Yahoo, Binance, FRED etc.
+
+
+## Estrutura
+
+```
+src/
+├── index.js          # entrada do Worker / lifecycle
+├── api.js            # rotas HTTP
+├── db.js             # bootstrap do D1 e datasets base
+├── ingest.js         # orquestração RAW → NORMALIZED
+├── normalize.js      # contrato canônico OHLCV
+└── providers/
+    ├── yahoo.js
+    └── binance.js
+```
+
+A regra é manter o backend pequeno: `index.js` coordena o ciclo de vida, `api.js` expõe HTTP, `db.js` cuida apenas do bootstrap do banco, e providers nunca vazam para o OChart.
