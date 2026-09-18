@@ -7,8 +7,6 @@ const JSON_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization'
 };
 
-const MIN_HISTORY_BARS = 10000;
-
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: JSON_HEADERS });
 }
@@ -43,8 +41,7 @@ export async function handleApi(request, env) {
       'SELECT id, name, provider, symbol, kind, interval, currency, description, updated_at FROM datasets ORDER BY name'
     ).all();
 
-    // Dataset discovery must stay fast and read-only. Ingestion is triggered
-    // only when a specific series is requested or by the scheduled job.
+    // Dataset discovery is always read-only.
     return json({ ok: true, data: result.results || [] });
   }
 
@@ -54,15 +51,11 @@ export async function handleApi(request, env) {
     const dataset = await env.DB.prepare('SELECT * FROM datasets WHERE id = ?').bind(id).first();
     if (!dataset) return json({ ok: false, error: 'dataset_not_found' }, 404);
 
-    const existing = await env.DB.prepare(
-      'SELECT COUNT(*) AS count FROM candles WHERE dataset_id = ?'
-    ).bind(id).first();
-
-    const existingCount = Number(existing?.count || 0);
+    // Normal GET is read-only. Historical data is persisted in D1 and is
+    // refreshed only when the UI explicitly asks for it (?refresh=1).
     const shouldRefresh = url.searchParams.get('refresh') === '1';
-    const shouldBootstrap = existingCount < MIN_HISTORY_BARS;
 
-    if (shouldRefresh || shouldBootstrap) {
+    if (shouldRefresh) {
       const report = await ingestDataset(env.DB, {
         id: dataset.id,
         provider: dataset.provider,
@@ -70,7 +63,7 @@ export async function handleApi(request, env) {
         interval: dataset.interval
       });
       console.log(JSON.stringify({
-        event: shouldRefresh ? 'manual_ingestion' : 'dataset_history_backfill',
+        event: 'manual_ingestion',
         report
       }));
     }
