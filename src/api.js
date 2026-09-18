@@ -17,6 +17,35 @@ function authorized(request, env) {
   return token === env.INGEST_TOKEN;
 }
 
+async function readDataset(db, id) {
+  const result = await db.prepare(
+    'SELECT timestamp AS t, open AS o, high AS h, low AS l, close AS c, volume AS v FROM candles WHERE dataset_id = ? ORDER BY timestamp'
+  ).bind(id).all();
+  return result.results || [];
+}
+
+async function datasetMeta(db, id) {
+  return db.prepare('SELECT * FROM datasets WHERE id = ?').bind(id).first();
+}
+
+function datasetView(meta, rows) {
+  return {
+    ok: true,
+    data: rows,
+    meta: {
+      datasetId: meta.id,
+      name: meta.name,
+      provider: meta.provider,
+      symbol: meta.symbol,
+      kind: meta.kind,
+      interval: meta.interval,
+      currency: meta.currency,
+      sourceName: meta.provider === 'yahoo' ? 'Yahoo Finance' : meta.provider === 'binance' ? 'Binance' : meta.provider === 'binance-us' ? 'Binance.US' : meta.provider,
+      updatedAt: meta.updated_at
+    }
+  };
+}
+
 export async function handleApi(request, env) {
   const url = new URL(request.url);
 
@@ -41,53 +70,56 @@ export async function handleApi(request, env) {
       'SELECT id, name, provider, symbol, kind, interval, currency, description, updated_at FROM datasets ORDER BY name'
     ).all();
 
-    // Dataset discovery is always read-only.
+    console.log(JSON.stringify({
+      event: 'datasets_list',
+      count: result.results?.length || 0
+    }));
+
     return json({ ok: true, data: result.results || [] });
   }
 
   const match = url.pathname.match(/^\/api\/datasets\/([^/]+)$/);
   if (match && request.method === 'GET') {
     const id = decodeURIComponent(match[1]);
-    const dataset = await env.DB.prepare('SELECT * FROM datasets WHERE id = ?').bind(id).first();
+    const dataset = await datasetMeta(env.DB, id);
     if (!dataset) return json({ ok: false, error: 'dataset_not_found' }, 404);
 
-    // Normal GET is read-only. Historical data is persisted in D1 and is
-    // refreshed only when the UI explicitly asks for it (?refresh=1).
-    const shouldRefresh = url.searchParams.get('refresh') === '1';
+    const rows = await readDataset(env.DB, id);
+    console.log(JSON.stringify({
+      event: 'dataset_read',
+      datasetId: id,
+      bars: rows.length,
+      updatedAt: dataset.updated_at
+    }));
 
-    if (shouldRefresh) {
-      const report = await ingestDataset(env.DB, {
-        id: dataset.id,
-        provider: dataset.provider,
-        symbol: dataset.symbol,
-        interval: dataset.interval
-      });
-      console.log(JSON.stringify({
-        event: 'manual_ingestion',
-        report
-      }));
-    }
+    return json(datasetView(dataset, rows));
+  }
 
-    const result = await env.DB.prepare(
-      'SELECT timestamp AS t, open AS o, high AS h, low AS l, close AS c, volume AS v FROM candles WHERE dataset_id = ? ORDER BY timestamp'
-    ).bind(id).all();
+  const refreshMatch = url.pathname.match(/^\/api\/datasets\/([^/]+)\/refresh$/);
+  if (refreshMatch && request.method === 'POST') {
+    const id = decodeURIComponent(refreshMatch[1]);
+    const dataset = await datasetMeta(env.DB, id);
+    if (!dataset) return json({ ok: false, error: 'dataset_not_found' }, 404);
 
-    const freshDataset = await env.DB.prepare('SELECT * FROM datasets WHERE id = ?').bind(id).first();
+    const report = await ingestDataset(env.DB, {
+      id: dataset.id,
+      provider: dataset.provider,
+      symbol: dataset.symbol,
+      interval: dataset.interval
+    });
+    const freshDataset = await datasetMeta(env.DB, id);
+    const rows = await readDataset(env.DB, id);
+
+    console.log(JSON.stringify({
+      event: 'manual_refresh_complete',
+      datasetId: id,
+      bars: rows.length,
+      report
+    }));
 
     return json({
-      ok: true,
-      data: result.results || [],
-      meta: {
-        datasetId: freshDataset.id,
-        name: freshDataset.name,
-        provider: freshDataset.provider,
-        symbol: freshDataset.symbol,
-        kind: freshDataset.kind,
-        interval: freshDataset.interval,
-        currency: freshDataset.currency,
-        sourceName: freshDataset.provider === 'yahoo' ? 'Yahoo Finance' : freshDataset.provider === 'binance' ? 'Binance' : freshDataset.provider === 'binance-us' ? 'Binance.US' : freshDataset.provider,
-        updatedAt: freshDataset.updated_at
-      }
+      ...datasetView(freshDataset, rows),
+      refresh: report
     });
   }
 
@@ -120,6 +152,12 @@ export async function handleApi(request, env) {
     ).bind(id).first();
 
     if (!dataset) return json({ ok: false, error: 'dataset_not_found' }, 404);
+
+    console.log(JSON.stringify({
+      event: 'protected_ingest_start',
+      datasetId: id
+    }));
+
     return json({ ok: true, data: await ingestDataset(env.DB, dataset) });
   }
 
