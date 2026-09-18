@@ -36,15 +36,18 @@ Os adapters ficam em `src/providers/`, mas continuam fazendo parte do mesmo back
 
 - `GET /api/health` — verifica Worker e D1.
 - `GET /api/datasets` — lista datasets.
-- `GET /api/datasets/:id` — retorna dados normalizados para o OChart.
+- `GET /api/datasets/:id` — retorna dados normalizados persistidos no D1. Não faz ingestão automática.
 - `GET /api/datasets/:id/raw` — retorna histórico de ingestões sem expor o payload bruto.
-- `POST /api/ingest/:id` — dispara uma ingestão manual. Requer `Authorization: Bearer <INGEST_TOKEN>`.
+- `GET /api/datasets/:id?refresh=1` — dispara uma atualização manual usada pelo botão Atualizar do OChart.
+- `POST /api/ingest/:id` — dispara uma ingestão administrativa manual. Requer `Authorization: Bearer <INGEST_TOKEN>`.
 
-## Ingestão automática
+## Persistência e atualização
 
-O Worker possui um Cron Trigger horário. Em cada execução, ele busca datasets configurados para Yahoo/Binance, preserva o RAW e atualiza a série NORMALIZED.
+A leitura normal do OChart é somente leitura: a série é carregada do D1 já persistido.
 
-Cron Triggers são executados em UTC pelo Cloudflare Workers.
+A atualização dos providers só acontece quando o usuário aciona **Atualizar** no OChart, que solicita `?refresh=1`. A ingestão preserva RAW e faz UPSERT da camada NORMALIZED.
+
+O Cron Trigger está desativado para evitar ingestões e consumo de D1 sem ação explícita do usuário.
 
 ## D1
 
