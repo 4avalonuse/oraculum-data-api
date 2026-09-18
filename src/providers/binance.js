@@ -2,10 +2,10 @@ const BASE_URLS = [
   'https://api.binance.us/api/v3/klines'
 ];
 const PAGE_SIZE = 1000;
-const MAX_INITIAL_BARS = 1000;
+const MAX_INITIAL_BARS = 10000;
 const REQUEST_TIMEOUT_MS = 12000;
 
-async function fetchPage(symbol, interval) {
+async function fetchPage(symbol, interval, endTime = null) {
   let lastError = null;
 
   for (const baseUrl of BASE_URLS) {
@@ -13,6 +13,7 @@ async function fetchPage(symbol, interval) {
     url.searchParams.set('symbol', String(symbol).toUpperCase());
     url.searchParams.set('interval', interval || '1h');
     url.searchParams.set('limit', String(PAGE_SIZE));
+    if (Number.isFinite(endTime)) url.searchParams.set('endTime', String(endTime));
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -63,9 +64,20 @@ export async function fetchBinance({ symbol, interval, historyBars = PAGE_SIZE }
     MAX_INITIAL_BARS
   );
 
-  const rows = await fetchPage(symbol, interval);
+  const pages = [];
+  let endTime = null;
+  while (pages.length < target) {
+    const page = await fetchPage(symbol, interval, endTime);
+    if (!page.length) break;
+    pages.push(...page);
+    if (page.length < PAGE_SIZE) break;
+    const oldest = Number(page[0][0]);
+    const nextEnd = oldest - 1;
+    if (!Number.isFinite(nextEnd) || nextEnd >= (endTime ?? Infinity)) break;
+    endTime = nextEnd;
+  }
 
-  const raw = rows
+  const raw = pages
     .sort((a, b) => Number(a[0]) - Number(b[0]))
     .filter((row, index, arr) => index === 0 || Number(row[0]) !== Number(arr[index - 1][0]))
     .slice(-target);
