@@ -93,7 +93,7 @@ export default {
         return json({ ok: true, data: result.results || [] });
       }
 
-      const match = url.pathname.match(/^\\/api\\/datasets\\/([^/]+)$/);
+      const match = url.pathname.match(/^\/api\/datasets\/([^/]+)$/);
       if (match && request.method === 'GET') {
         const id = decodeURIComponent(match[1]);
         const dataset = await env.DB.prepare('SELECT * FROM datasets WHERE id = ?').bind(id).first();
@@ -119,7 +119,7 @@ export default {
         });
       }
 
-      const rawMatch = url.pathname.match(/^\\/api\\/datasets\\/([^/]+)\\/raw$/);
+      const rawMatch = url.pathname.match(/^\/api\/datasets\/([^/]+)\/raw$/);
       if (rawMatch && request.method === 'GET') {
         const id = decodeURIComponent(rawMatch[1]);
         const result = await env.DB.prepare(
@@ -133,7 +133,7 @@ export default {
         return json({ ok: true, data: result.results || [] });
       }
 
-      const ingestMatch = url.pathname.match(/^\\/api\\/ingest\\/([^/]+)$/);
+      const ingestMatch = url.pathname.match(/^\/api\/ingest\/([^/]+)$/);
       if (ingestMatch && request.method === 'POST') {
         if (!authorized(request, env)) {
           return json({ ok: false, error: env.INGEST_TOKEN ? 'unauthorized' : 'ingest_token_not_configured' }, 401);
