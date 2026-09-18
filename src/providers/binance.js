@@ -4,7 +4,7 @@ const MAX_INITIAL_BARS = 9000;
 
 function intervalMs(interval) {
   const units = { m: 60000, h: 3600000, d: 86400000, w: 604800000 };
-  const match = String(interval || '1h').match(/^(\\d+)([mhdw])$/i);
+  const match = String(interval || '1h').match(/^(\d+)([mhdw])$/i);
   if (!match) return 3600000;
   return Number(match[1]) * (units[match[2].toLowerCase()] || units.h);
 }
