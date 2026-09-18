@@ -1,6 +1,8 @@
 const BASE_URL = 'https://data-api.binance.vision/api/v3/klines';
 const PAGE_SIZE = 1000;
 const MAX_INITIAL_BARS = 9000;
+const MAX_PARALLEL_PAGES = 3;
+const REQUEST_TIMEOUT_MS = 8000;
 
 function intervalMs(interval) {
   const units = { m: 60000, h: 3600000, d: 86400000, w: 604800000 };
@@ -16,45 +18,77 @@ async function fetchPage(symbol, interval, startTime) {
   url.searchParams.set('limit', String(PAGE_SIZE));
   if (Number.isFinite(startTime)) url.searchParams.set('startTime', String(startTime));
 
-  const response = await fetch(url);
-  const payload = await response.json();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
-  if (!response.ok) {
-    throw new Error(`binance_http_${response.status}_${payload?.msg || 'request_failed'}`);
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    const text = await response.text();
+
+    let payload;
+    try {
+      payload = text ? JSON.parse(text) : null;
+    } catch (_) {
+      throw new Error('binance_invalid_json');
+    }
+
+    if (!response.ok) {
+      throw new Error(`binance_http_${response.status}_${payload?.msg || 'request_failed'}`);
+    }
+
+    if (!Array.isArray(payload)) {
+      throw new Error('binance_invalid_payload');
+    }
+
+    return payload;
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      throw new Error('binance_request_timeout');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
   }
-
-  if (!Array.isArray(payload)) {
-    throw new Error('binance_invalid_payload');
-  }
-
-  return payload;
 }
 
 export async function fetchBinance({ symbol, interval, historyBars = PAGE_SIZE }) {
-  const target = Math.min(Math.max(Number(historyBars) || PAGE_SIZE, PAGE_SIZE), MAX_INITIAL_BARS);
+  const target = Math.min(
+    Math.max(Number(historyBars) || PAGE_SIZE, PAGE_SIZE),
+    MAX_INITIAL_BARS
+  );
+
   const step = intervalMs(interval);
   const now = Date.now();
-  let startTime = now - ((target - 1) * step);
+  const startTime = now - ((target - 1) * step);
+  const pageCount = Math.ceil(target / PAGE_SIZE);
   const pages = [];
-  let remaining = target;
 
-  while (remaining > 0) {
-    const page = await fetchPage(symbol, interval, startTime);
-    if (!page.length) break;
+  // Keep the initial backfill fast enough for a Cloudflare Worker while
+  // avoiding a burst of all requests at once.
+  for (let offset = 0; offset < pageCount; offset += MAX_PARALLEL_PAGES) {
+    const batch = Array.from(
+      { length: Math.min(MAX_PARALLEL_PAGES, pageCount - offset) },
+      (_, index) => {
+        const pageIndex = offset + index;
+        return fetchPage(
+          symbol,
+          interval,
+          startTime + (pageIndex * PAGE_SIZE * step)
+        );
+      }
+    );
 
-    pages.push(...page);
-    const lastOpen = Number(page.at(-1)?.[0]);
-    if (!Number.isFinite(lastOpen)) break;
+    const results = await Promise.all(batch);
+    pages.push(...results.flat());
 
-    remaining -= page.length;
-    if (page.length < PAGE_SIZE || remaining <= 0) break;
-
-    startTime = lastOpen + step;
+    if (pages.length >= target) break;
   }
 
   const raw = pages
     .sort((a, b) => Number(a[0]) - Number(b[0]))
-    .filter((row, index, arr) => index === 0 || Number(row[0]) !== Number(arr[index - 1][0]))
+    .filter((row, index, arr) =>
+      index === 0 || Number(row[0]) !== Number(arr[index - 1][0])
+    )
     .slice(-target);
 
   const rows = raw.map((kline) => ({
