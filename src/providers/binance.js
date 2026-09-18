@@ -1,4 +1,5 @@
 const BASE_URLS = [
+  'https://api.binance.us/api/v3/klines',
   'https://data-api.binance.vision/api/v3/klines',
   'https://api.binance.com/api/v3/klines',
   'https://api1.binance.com/api/v3/klines'
