@@ -1,4 +1,4 @@
-import { ingestAll, ingestDataset } from './ingest.js';
+import { ingestDataset } from './ingest.js';
 
 const JSON_HEADERS = {
   'Content-Type': 'application/json; charset=utf-8',
@@ -41,12 +41,8 @@ export async function handleApi(request, env) {
       'SELECT id, name, provider, symbol, kind, interval, currency, description, updated_at FROM datasets ORDER BY name'
     ).all();
 
-    const candleCount = await env.DB.prepare('SELECT COUNT(*) AS count FROM candles').first();
-    if (Number(candleCount?.count || 0) === 0 && (result.results || []).length) {
-      const reports = await ingestAll(env.DB);
-      console.log(JSON.stringify({ event: 'bootstrap_ingestion', reports }));
-    }
-
+    // Dataset discovery must stay fast and read-only. Ingestion is triggered
+    // only when a specific series is requested or by the scheduled job.
     return json({ ok: true, data: result.results || [] });
   }
 
