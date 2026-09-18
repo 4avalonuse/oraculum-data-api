@@ -44,7 +44,7 @@ Os adapters ficam em `src/providers/`, mas continuam fazendo parte do mesmo back
 
 O Worker possui um Cron Trigger horário. Em cada execução, ele busca datasets configurados para Yahoo/Binance, preserva o RAW e atualiza a série NORMALIZED.
 
-Cron Triggers são executados em UTC pelo Cloudflare Workers. citeturn0search0turn0search1
+Cron Triggers são executados em UTC pelo Cloudflare Workers.
 
 ## D1
 
