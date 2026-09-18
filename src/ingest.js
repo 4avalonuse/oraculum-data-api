@@ -14,7 +14,8 @@ export async function ingestDataset(db, dataset) {
   try {
     // Keep the request bounded and fast for the Worker. Historical
     // backfill can be added separately without blocking the chart.
-    const historyBars = 1000;
+    const existing = await db.prepare('SELECT COUNT(*) AS count FROM candles WHERE dataset_id = ?').bind(dataset.id).first();
+    const historyBars = Number(existing?.count || 0) === 0 ? 10000 : 1000;
 
     result = await fetcher({
       symbol: dataset.symbol,
