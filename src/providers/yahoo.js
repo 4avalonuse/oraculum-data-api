@@ -1,39 +1,29 @@
 const BASE_URL = 'https://query1.finance.yahoo.com/v8/finance/chart';
+const INTERVALS = { '1m':'1m', '1h':'1h', '1d':'1d', '1w':'1wk', '1M':'1mo' };
 
 function intervalSeconds(interval) {
-  const match = String(interval || '1d').match(/^(\\d+)(m|h|d|wk|mo)$/);
+  const yahooInterval = INTERVALS[interval] || interval || '1d';
+  const match = String(yahooInterval).match(/^(\d+)(m|h|d|wk|mo)$/);
   if (!match) return 86400;
-  const n = Number(match[1]);
-  const unit = match[2];
-  return n * ({ m: 60, h: 3600, d: 86400, wk: 604800, mo: 2592000 }[unit] || 86400);
+  return Number(match[1]) * ({ m:60, h:3600, d:86400, wk:604800, mo:2592000 }[match[2]] || 86400);
 }
 
 export async function fetchYahoo({ symbol, interval }) {
+  const yahooInterval = INTERVALS[interval] || interval || '1d';
   const now = Math.floor(Date.now() / 1000);
-  const lookback = intervalSeconds(interval) * 1000;
-  const period1 = now - lookback;
+  const period1 = now - intervalSeconds(interval) * 1000;
   const period2 = now + 60;
-
-  const url = new URL(`${BASE_URL}/${encodeURIComponent(symbol)}`);
+  const url = new URL(BASE_URL + '/' + encodeURIComponent(symbol));
   url.searchParams.set('period1', String(period1));
   url.searchParams.set('period2', String(period2));
-  url.searchParams.set('interval', interval || '1d');
+  url.searchParams.set('interval', yahooInterval);
   url.searchParams.set('events', 'div,splits');
 
-  const response = await fetch(url, {
-    headers: { 'User-Agent': 'Oraculum-Data-API/1.0' }
-  });
+  const response = await fetch(url, { headers: { 'User-Agent': 'Oraculum-Data-API/1.0' } });
   const payload = await response.json();
-
-  if (!response.ok) {
-    throw new Error(`yahoo_http_${response.status}`);
-  }
-
+  if (!response.ok) throw new Error('yahoo_http_' + response.status);
   const result = payload?.chart?.result?.[0];
-  if (!result) {
-    const description = payload?.chart?.error?.description || 'no_chart_data';
-    throw new Error(`yahoo_${description}`);
-  }
+  if (!result) throw new Error('yahoo_' + (payload?.chart?.error?.description || 'no_chart_data'));
 
   const quote = result?.indicators?.quote?.[0] || {};
   const timestamps = result.timestamp || [];
@@ -45,12 +35,5 @@ export async function fetchYahoo({ symbol, interval }) {
     close: quote.close?.[i],
     volume: quote.volume?.[i] ?? 0
   }));
-
-  return {
-    provider: 'yahoo',
-    symbol: result.meta?.symbol || symbol,
-    currency: result.meta?.currency || null,
-    raw: payload,
-    rows
-  };
+  return { provider:'yahoo', symbol:result.meta?.symbol || symbol, currency:result.meta?.currency || null, raw:payload, rows };
 }
