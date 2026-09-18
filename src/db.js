@@ -24,7 +24,7 @@ export async function ensureSchema(db) {
   const datasets = [
     {
       id: 'btc-usd-yahoo',
-      name: 'Bitcoin / USD',
+      name: 'Bitcoin / USD · Yahoo Finance',
       provider: 'yahoo',
       symbol: 'BTC-USD',
       interval: '1d',
@@ -32,51 +32,53 @@ export async function ensureSchema(db) {
       description: 'Bitcoin daily OHLCV from Yahoo Finance'
     },
     {
-      id: 'btc-usdt-binance-1m',
-      name: 'Bitcoin / USDT · 1m',
-      provider: 'binance',
-      symbol: 'BTCUSDT',
+      id: 'btc-usd-binance-us-1m',
+      name: 'Bitcoin / USD · Binance.US · 1m',
+      provider: 'binance-us',
+      symbol: 'BTCUSD',
       interval: '1m',
-      currency: 'USDT',
-      description: 'Bitcoin minute OHLCV from Binance Spot'
+      currency: 'USD',
+      description: 'Bitcoin minute OHLCV from Binance.US'
     },
     {
-      id: 'btc-usdt-binance-1h',
-      name: 'Bitcoin / USDT · 1h',
-      provider: 'binance',
-      symbol: 'BTCUSDT',
+      id: 'btc-usd-binance-us-1h',
+      name: 'Bitcoin / USD · Binance.US · 1h',
+      provider: 'binance-us',
+      symbol: 'BTCUSD',
       interval: '1h',
-      currency: 'USDT',
-      description: 'Bitcoin hourly OHLCV from Binance Spot'
+      currency: 'USD',
+      description: 'Bitcoin hourly OHLCV from Binance.US'
     },
     {
-      id: 'btc-usdt-binance-1d',
-      name: 'Bitcoin / USDT · 1d',
-      provider: 'binance',
-      symbol: 'BTCUSDT',
+      id: 'btc-usd-binance-us-1d',
+      name: 'Bitcoin / USD · Binance.US · 1d',
+      provider: 'binance-us',
+      symbol: 'BTCUSD',
       interval: '1d',
-      currency: 'USDT',
-      description: 'Bitcoin daily OHLCV from Binance Spot'
+      currency: 'USD',
+      description: 'Bitcoin daily OHLCV from Binance.US'
     },
     {
-      id: 'btc-usdt-binance-1w',
-      name: 'Bitcoin / USDT · 1w',
-      provider: 'binance',
-      symbol: 'BTCUSDT',
+      id: 'btc-usd-binance-us-1w',
+      name: 'Bitcoin / USD · Binance.US · 1w',
+      provider: 'binance-us',
+      symbol: 'BTCUSD',
       interval: '1w',
-      currency: 'USDT',
-      description: 'Bitcoin weekly OHLCV from Binance Spot'
+      currency: 'USD',
+      description: 'Bitcoin weekly OHLCV from Binance.US'
     },
     {
-      id: 'btc-usdt-binance-1M',
-      name: 'Bitcoin / USDT · 1M',
-      provider: 'binance',
-      symbol: 'BTCUSDT',
+      id: 'btc-usd-binance-us-1M',
+      name: 'Bitcoin / USD · Binance.US · 1M',
+      provider: 'binance-us',
+      symbol: 'BTCUSD',
       interval: '1M',
-      currency: 'USDT',
-      description: 'Bitcoin monthly OHLCV from Binance Spot'
-    }
+      currency: 'USD',
+      description: 'Bitcoin monthly OHLCV from Binance.US'
+    },
   ];
+
+  await db.prepare("DELETE FROM datasets WHERE id IN ('btc-usdt-binance', 'btc-usdt-binance-1m', 'btc-usdt-binance-1h', 'btc-usdt-binance-1d', 'btc-usdt-binance-1w', 'btc-usdt-binance-1M')").run();
 
   for (const d of datasets) {
     await db.prepare(
