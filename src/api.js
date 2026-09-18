@@ -56,22 +56,41 @@ export async function handleApi(request, env) {
     const dataset = await env.DB.prepare('SELECT * FROM datasets WHERE id = ?').bind(id).first();
     if (!dataset) return json({ ok: false, error: 'dataset_not_found' }, 404);
 
+    const existing = await env.DB.prepare(
+      'SELECT COUNT(*) AS count FROM candles WHERE dataset_id = ?'
+    ).bind(id).first();
+
+    const shouldRefresh = url.searchParams.get('refresh') === '1';
+    const shouldBootstrap = Number(existing?.count || 0) === 0;
+
+    if (shouldRefresh || shouldBootstrap) {
+      const report = await ingestDataset(env.DB, {
+        id: dataset.id,
+        provider: dataset.provider,
+        symbol: dataset.symbol,
+        interval: dataset.interval
+      });
+      console.log(JSON.stringify({ event: shouldRefresh ? 'manual_ingestion' : 'dataset_bootstrap', report }));
+    }
+
     const result = await env.DB.prepare(
       'SELECT timestamp AS t, open AS o, high AS h, low AS l, close AS c, volume AS v FROM candles WHERE dataset_id = ? ORDER BY timestamp'
     ).bind(id).all();
+
+    const freshDataset = await env.DB.prepare('SELECT * FROM datasets WHERE id = ?').bind(id).first();
 
     return json({
       ok: true,
       data: result.results || [],
       meta: {
-        datasetId: dataset.id,
-        name: dataset.name,
-        provider: dataset.provider,
-        symbol: dataset.symbol,
-        kind: dataset.kind,
-        interval: dataset.interval,
-        currency: dataset.currency,
-        updatedAt: dataset.updated_at
+        datasetId: freshDataset.id,
+        name: freshDataset.name,
+        provider: freshDataset.provider,
+        symbol: freshDataset.symbol,
+        kind: freshDataset.kind,
+        interval: freshDataset.interval,
+        currency: freshDataset.currency,
+        updatedAt: freshDataset.updated_at
       }
     });
   }
