@@ -2,7 +2,7 @@ import { fetchYahoo } from './providers/yahoo.js';
 import { fetchBinance } from './providers/binance.js';
 import { normalizeCandles } from './normalize.js';
 
-const providers = { yahoo: fetchYahoo, binance: fetchBinance };
+const providers = { yahoo: fetchYahoo, 'binance-us': fetchBinance };
 
 export async function ingestDataset(db, dataset) {
   const fetcher = providers[dataset.provider];
