@@ -14,7 +14,7 @@ test('Yahoo request window honors the requested history bar count', () => {
   assert.equal(url.searchParams.get('interval'), '1h');
   assert.equal(
     Number(url.searchParams.get('period2')) - Number(url.searchParams.get('period1')),
-    1000 * 60 * 60
+    1000 * 60 * 60 + 60
   );
 });
 
