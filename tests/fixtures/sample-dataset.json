@@ -1,0 +1,18 @@
+{
+  "ok": true,
+  "data": [
+    { "t": 1000, "o": 1, "h": 2, "l": 0.5, "c": 1.5, "v": 10 },
+    { "t": 2000, "o": 1.5, "h": 2.5, "l": 1.25, "c": 2, "v": 12 }
+  ],
+  "meta": {
+    "datasetId": "sol-usdt-d1",
+    "name": "Solana / USDT",
+    "provider": "test",
+    "symbol": "SOL-USDT",
+    "kind": "ohlcv",
+    "interval": "1d",
+    "currency": "USDT",
+    "sourceName": "Test Fixture",
+    "updatedAt": 2000
+  }
+}
