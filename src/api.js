@@ -20,7 +20,7 @@ function authorized(request, env) {
 
 async function readDataset(db, id) {
   const result = await db.prepare(
-    'SELECT timestamp AS t, open AS o, high AS h, low AS l, close AS c, volume AS v FROM candles WHERE dataset_id = ? ORDER BY timestamp'
+    'SELECT timestamp, open, high, low, close, volume FROM candles WHERE dataset_id = ? ORDER BY timestamp'
   ).bind(id).all();
   return result.results || [];
 }
