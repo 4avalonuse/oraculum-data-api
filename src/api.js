@@ -1,4 +1,5 @@
 import { ingestDataset } from './ingest.js';
+import { datasetView } from './contract.js';
 
 const JSON_HEADERS = {
   'Content-Type': 'application/json; charset=utf-8',
@@ -26,24 +27,6 @@ async function readDataset(db, id) {
 
 async function datasetMeta(db, id) {
   return db.prepare('SELECT * FROM datasets WHERE id = ?').bind(id).first();
-}
-
-function datasetView(meta, rows) {
-  return {
-    ok: true,
-    data: rows,
-    meta: {
-      datasetId: meta.id,
-      name: meta.name,
-      provider: meta.provider,
-      symbol: meta.symbol,
-      kind: meta.kind,
-      interval: meta.interval,
-      currency: meta.currency,
-      sourceName: meta.provider === 'yahoo' ? 'Yahoo Finance' : meta.provider === 'binance' ? 'Binance' : meta.provider === 'binance-us' ? 'Binance.US' : meta.provider,
-      updatedAt: meta.updated_at
-    }
-  };
 }
 
 export async function handleApi(request, env) {
