@@ -8,17 +8,22 @@ function intervalSeconds(interval) {
   return Number(match[1]) * ({ m:60, h:3600, d:86400, wk:604800, mo:2592000 }[match[2]] || 86400);
 }
 
-export async function fetchYahoo({ symbol, interval }) {
+export function buildYahooChartUrl({ symbol, interval, historyBars = 1000, now = Date.now() }) {
   const yahooInterval = INTERVALS[interval] || interval || '1d';
-  const now = Math.floor(Date.now() / 1000);
-  const period1 = now - intervalSeconds(interval) * 1000;
-  const period2 = now + 60;
+  const nowSeconds = Math.floor(now / 1000);
+  const bars = Math.max(1, Number(historyBars) || 1000);
+  const period1 = nowSeconds - intervalSeconds(interval) * bars;
+  const period2 = nowSeconds + 60;
   const url = new URL(BASE_URL + '/' + encodeURIComponent(symbol));
   url.searchParams.set('period1', String(period1));
   url.searchParams.set('period2', String(period2));
   url.searchParams.set('interval', yahooInterval);
   url.searchParams.set('events', 'div,splits');
+  return url;
+}
 
+export async function fetchYahoo({ symbol, interval, historyBars = 1000 }) {
+  const url = buildYahooChartUrl({ symbol, interval, historyBars });
   const response = await fetch(url, { headers: { 'User-Agent': 'Oraculum-Data-API/1.0' } });
   const payload = await response.json();
   if (!response.ok) throw new Error('yahoo_http_' + response.status);
