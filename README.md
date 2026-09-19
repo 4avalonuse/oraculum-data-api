@@ -38,14 +38,14 @@ Os adapters ficam em `src/providers/`, mas continuam fazendo parte do mesmo back
 - `GET /api/datasets` — lista datasets.
 - `GET /api/datasets/:id` — retorna dados normalizados persistidos no D1. Não faz ingestão automática.
 - `GET /api/datasets/:id/raw` — retorna histórico de ingestões sem expor o payload bruto.
-- `GET /api/datasets/:id?refresh=1` — dispara uma atualização manual usada pelo botão Atualizar do OChart.
+- `POST /api/datasets/:id/refresh` — dispara uma atualização manual usada pelo botão Atualizar do OChart.
 - `POST /api/ingest/:id` — dispara uma ingestão administrativa manual. Requer `Authorization: Bearer <INGEST_TOKEN>`.
 
 ## Persistência e atualização
 
 A leitura normal do OChart é somente leitura: a série é carregada do D1 já persistido.
 
-A atualização dos providers só acontece quando o usuário aciona **Atualizar** no OChart, que solicita `?refresh=1`. A ingestão preserva RAW e faz UPSERT da camada NORMALIZED.
+A atualização dos providers só acontece quando o usuário aciona **Atualizar** no OChart, que envia `POST /api/datasets/:id/refresh`. A ingestão preserva RAW e faz UPSERT da camada NORMALIZED.
 
 O Cron Trigger está desativado para evitar ingestões e consumo de D1 sem ação explícita do usuário.
 
