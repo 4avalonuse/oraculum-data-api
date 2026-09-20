@@ -22,40 +22,29 @@ jobs:
         run: |
           set -euo pipefail
 
-          pass=0
-          total=0
-
-          check() {
-            total=$((total + 1))
-            name="$1"
-            if "$@"; then
-              echo "PASS: $name"
-              pass=$((pass + 1))
-            else
-              echo "FAIL: $name"
-              return 1
-            fi
-          }
-
           echo "=== ORACULUM SYSTEM SMOKE TEST ==="
           echo "API: $API"
           echo "Dataset: $DATASET_ID"
           echo
 
-          health="$(curl --fail-with-body --silent --show-error "$API/api/health")"
-          node -e 'const x=JSON.parse(process.argv[1]); if(!x.ok || x.database!=="d1") process.exit(1)' "$health"
+          health_file="$(mktemp)"
+          curl --fail-with-body --silent --show-error "$API/api/health" > "$health_file"
+          node -e 'const fs=require("fs"); const x=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if(!x.ok || x.database!=="d1") process.exit(1)' "$health_file"
           echo "PASS: health + D1"
 
-          datasets="$(curl --fail-with-body --silent --show-error "$API/api/datasets")"
-          node -e 'const x=JSON.parse(process.argv[1]); if(!x.ok || !Array.isArray(x.data) || x.data.length < 1) process.exit(1)' "$datasets"
+          datasets_file="$(mktemp)"
+          curl --fail-with-body --silent --show-error "$API/api/datasets" > "$datasets_file"
+          node -e 'const fs=require("fs"); const x=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if(!x.ok || !Array.isArray(x.data) || x.data.length < 1) process.exit(1)' "$datasets_file"
           echo "PASS: datasets"
 
-          dataset="$(curl --fail-with-body --silent --show-error "$API/api/datasets/$DATASET_ID")"
-          node -e 'const x=JSON.parse(process.argv[1]); if(!x.ok || !Array.isArray(x.data) || x.data.length < 1) process.exit(1)' "$dataset"
+          dataset_file="$(mktemp)"
+          curl --fail-with-body --silent --show-error "$API/api/datasets/$DATASET_ID" > "$dataset_file"
+          node -e 'const fs=require("fs"); const x=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if(!x.ok || !Array.isArray(x.data) || x.data.length < 1) process.exit(1); console.log("bars:",x.data.length)' "$dataset_file"
           echo "PASS: candles"
 
-          raw_before="$(curl --fail-with-body --silent --show-error "$API/api/datasets/$DATASET_ID/raw")"
-          node -e 'const x=JSON.parse(process.argv[1]); if(!x.ok || !Array.isArray(x.data)) process.exit(1)' "$raw_before"
+          raw_before="$(mktemp)"
+          curl --fail-with-body --silent --show-error "$API/api/datasets/$DATASET_ID/raw" > "$raw_before"
+          node -e 'const fs=require("fs"); const x=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if(!x.ok || !Array.isArray(x.data)) process.exit(1); console.log("ingestion records:",x.data.length)' "$raw_before"
           echo "PASS: raw ingestion endpoint"
 
           refresh_file="$(mktemp)"
@@ -69,8 +58,9 @@ jobs:
           ' "$refresh_file"
           echo "PASS: real refresh + D1 persistence"
 
-          raw_after="$(curl --fail-with-body --silent --show-error "$API/api/datasets/$DATASET_ID/raw")"
-          node -e 'const x=JSON.parse(process.argv[1]); if(!x.ok || !Array.isArray(x.data) || x.data.length < 1 || x.data[0].request_status!=="ok") process.exit(1)' "$raw_after"
+          raw_after="$(mktemp)"
+          curl --fail-with-body --silent --show-error "$API/api/datasets/$DATASET_ID/raw" > "$raw_after"
+          node -e 'const fs=require("fs"); const x=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if(!x.ok || !Array.isArray(x.data) || x.data.length < 1 || x.data[0].request_status!=="ok") process.exit(1); console.log("latest ingestion id:",x.data[0].id)' "$raw_after"
           echo "PASS: post-refresh ingestion log"
 
           status="$(curl --silent --output /dev/null --write-out "%{http_code}" "$API/api/datasets/does-not-exist")"
@@ -95,7 +85,7 @@ jobs:
 
           **Dataset:** `$DATASET_ID`
 
-          The Worker answered, D1 was reachable, real provider ingestion completed, data persisted, and the ingestion log was updated.
+          Worker, D1, provider ingestion, persistence and API error handling all passed.
           EOF
 
           echo
