@@ -1,0 +1,80 @@
+name: Provider Dataset Audit
+
+on:
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Audit Binance.US datasets
+        env:
+          API: https://oraculum-data-api.4avalonuse.workers.dev
+        run: |
+          set -euo pipefail
+
+          echo "=== ORACULUM PROVIDER DATASET AUDIT ==="
+
+          for DATASET_ID in btc-usd-binance-us-1d btc-usd-binance-us-1h; do
+            echo
+            echo ">>> $DATASET_ID"
+
+            before="$(mktemp)"
+            curl --fail-with-body --silent --show-error "$API/api/datasets/$DATASET_ID" > "$before"
+
+            node -e '
+              const fs=require("fs");
+              const x=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));
+              if(!x.ok || !x.dataset || x.dataset.provider!=="binance-us") process.exit(1);
+              console.log("before bars:",x.data.length);
+            ' "$before"
+
+            refresh="$(mktemp)"
+            curl --fail-with-body --silent --show-error               -X POST "$API/api/datasets/$DATASET_ID/refresh" > "$refresh"
+
+            node -e '
+              const fs=require("fs");
+              const x=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));
+              if(!x.ok || !x.refresh || x.refresh.fetched <= 0 || x.refresh.normalized <= 0 || !Array.isArray(x.data) || x.data.length === 0) process.exit(1);
+              const t=x.data.map(r=>r.t);
+              for(let i=1;i<t.length;i++) if(t[i] <= t[i-1]) process.exit(1);
+              console.log(JSON.stringify({
+                fetched:x.refresh.fetched,
+                normalized:x.refresh.normalized,
+                rejected:x.refresh.rejected,
+                duplicatesRemoved:x.refresh.duplicatesRemoved,
+                finalCount:x.refresh.finalCount,
+                continuityGaps:x.refresh.continuityGaps,
+                barsReturned:x.data.length,
+                firstTimestamp:t[0],
+                lastTimestamp:t.at(-1)
+              },null,2));
+            ' "$refresh"
+
+            raw="$(mktemp)"
+            curl --fail-with-body --silent --show-error "$API/api/datasets/$DATASET_ID/raw" > "$raw"
+            node -e '
+              const fs=require("fs");
+              const x=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));
+              if(!x.ok || !Array.isArray(x.data) || !x.data.length || x.data[0].request_status!=="ok") process.exit(1);
+              console.log("latest ingestion:",x.data[0].id);
+            ' "$raw"
+
+            echo "PASS: $DATASET_ID"
+          done
+
+          cat >> "$GITHUB_STEP_SUMMARY" <<'EOF'
+          # 🟩 ORACULUM PROVIDER DATASET AUDIT
+
+          | Dataset | Result |
+          |---|---|
+          | Binance.US · 1d | ✅ PASS |
+          | Binance.US · 1h | ✅ PASS |
+
+          ## RESULT: 🟩 BINANCE PROVIDER OK
+
+          Real provider fetch, normalization, ordering, D1 persistence and ingestion logging passed for both tested intervals.
+          EOF
