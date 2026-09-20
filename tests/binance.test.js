@@ -51,7 +51,7 @@ test('fetchBinance paginates backward and keeps the newest target bars', async (
   const originalFetch = globalThis.fetch;
   const pages = [
     Array.from({ length: 1000 }, (_, i) => kline(2_000_000 + i * 60_000, 100 + i)),
-    Array.from({ length: 1000 }, (_, i) => kline(1_940_000 + i * 60_000, 50 + i))
+    Array.from({ length: 1000 }, (_, i) => kline(-58_060_000 + i * 60_000, 50 + i))
   ];
   let calls = 0;
 
