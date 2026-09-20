@@ -6,8 +6,7 @@ function buildOhlcvDatasets({
   provider,
   symbol,
   currency,
-  providerLabel,
-  descriptionLabel
+  providerLabel
 }) {
   return INTERVALS.map((interval) => ({
     id: `${assetId}-${provider}-${interval}`,
@@ -16,7 +15,7 @@ function buildOhlcvDatasets({
     symbol,
     interval,
     currency,
-    description: `${assetName} ${descriptionLabel} OHLCV from ${providerLabel}`
+    description: `${assetName} OHLCV from ${providerLabel}`
   }));
 }
 
@@ -27,8 +26,7 @@ export const DATASETS = [
     provider: 'yahoo',
     symbol: 'BTC-USD',
     currency: 'USD',
-    providerLabel: 'Yahoo Finance',
-    descriptionLabel: 'OHLCV'
+    providerLabel: 'Yahoo Finance'
   }),
   ...buildOhlcvDatasets({
     assetId: 'btc-usd',
@@ -36,7 +34,6 @@ export const DATASETS = [
     provider: 'binance-us',
     symbol: 'BTCUSD',
     currency: 'USD',
-    providerLabel: 'Binance.US',
-    descriptionLabel: 'OHLCV'
+    providerLabel: 'Binance.US'
   })
 ];
