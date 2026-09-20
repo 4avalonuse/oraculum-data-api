@@ -1,0 +1,25 @@
+name: Manual Refresh Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      dataset_id:
+        description: "Dataset to refresh"
+        required: true
+        default: "btc-usd-yahoo-1d"
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Refresh dataset
+        env:
+          DATASET_ID: ${{ inputs.dataset_id }}
+        run: |
+          set -euo pipefail
+          curl --fail-with-body --silent --show-error \
+            -X POST \
+            "https://oraculum-data-api.4avalonuse.workers.dev/api/datasets/${DATASET_ID}/refresh"
