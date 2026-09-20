@@ -129,8 +129,6 @@ async function initializeSchema(db) {
   }
 }
 
-}
-
 export async function ensureSchema(db) {
   if (schemaReady) return;
   if (!schemaPromise) {
