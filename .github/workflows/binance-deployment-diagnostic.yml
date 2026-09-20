@@ -1,0 +1,29 @@
+name: Binance Deployment Diagnostic
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inspect deployed Binance dataset state
+        env:
+          API: https://oraculum-data-api.4avalonuse.workers.dev
+        run: |
+          set -u
+
+          echo "=== DEPLOYED DATASET DIAGNOSTIC ==="
+          echo
+          echo "GET /api/datasets"
+          curl -sS -o datasets.json -w "HTTP %{http_code}\n" "$API/api/datasets"
+          cat datasets.json
+          echo
+          echo "GET /api/datasets/btc-usd-binance-us-1d"
+          curl -sS -o binance1d.json -w "HTTP %{http_code}\n" "$API/api/datasets/btc-usd-binance-us-1d"
+          cat binance1d.json
+          echo
+          echo "GET /api/datasets/btc-usd-binance-us-1h"
+          curl -sS -o binance1h.json -w "HTTP %{http_code}\n" "$API/api/datasets/btc-usd-binance-us-1h"
+          cat binance1h.json
