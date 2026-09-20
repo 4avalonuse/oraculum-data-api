@@ -28,12 +28,13 @@ jobs:
             node -e '
               const fs=require("fs");
               const x=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));
-              if(!x.ok || !x.dataset || x.dataset.provider!=="binance-us") process.exit(1);
+              if(!x.ok || !x.meta || x.meta.provider!=="binance-us") process.exit(1);
               console.log("before bars:",x.data.length);
             ' "$before"
 
             refresh="$(mktemp)"
-            curl --fail-with-body --silent --show-error               -X POST "$API/api/datasets/$DATASET_ID/refresh" > "$refresh"
+            curl --fail-with-body --silent --show-error \
+              -X POST "$API/api/datasets/$DATASET_ID/refresh" > "$refresh"
 
             node -e '
               const fs=require("fs");
