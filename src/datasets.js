@@ -35,5 +35,13 @@ export const DATASETS = [
     symbol: 'BTCUSD',
     currency: 'USD',
     providerLabel: 'Binance.US'
+  }),
+  ...buildOhlcvDatasets({
+    assetId: 'sol-usd',
+    assetName: 'Solana / USD',
+    provider: 'yahoo',
+    symbol: 'SOL-USD',
+    currency: 'USD',
+    providerLabel: 'Yahoo Finance'
   })
 ];
