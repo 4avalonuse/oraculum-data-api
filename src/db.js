@@ -1,5 +1,12 @@
 import { DATASETS } from './datasets.js';
 
+const HALVINGS = [
+  ['btc-halving-2012', '2012-11-28', 'Bitcoin Halving 2012', 210000, 50, 25, 'Bitcoin.org'],
+  ['btc-halving-2016', '2016-07-09', 'Bitcoin Halving 2016', 420000, 25, 12.5, 'Bitcoin.org'],
+  ['btc-halving-2020', '2020-05-11', 'Bitcoin Halving 2020', 630000, 12.5, 6.25, 'Bitcoin.org'],
+  ['btc-halving-2024', '2024-04-20', 'Bitcoin Halving 2024', 840000, 6.25, 3.125, 'Bitcoin.org']
+];
+
 let schemaReady = false;
 let schemaPromise = null;
 
@@ -23,19 +30,13 @@ async function initializeSchema(db) {
     CREATE TABLE IF NOT EXISTS candles (
       dataset_id TEXT NOT NULL,
       timestamp INTEGER NOT NULL,
-      open REAL,
-      high REAL,
-      low REAL,
-      close REAL,
-      volume REAL,
+      open REAL, high REAL, low REAL, close REAL, volume REAL,
       PRIMARY KEY (dataset_id, timestamp),
       FOREIGN KEY (dataset_id) REFERENCES datasets(id) ON DELETE CASCADE
     )
   `).run();
 
-  await db.prepare(
-    'CREATE INDEX IF NOT EXISTS idx_candles_dataset_timestamp ON candles(dataset_id, timestamp)'
-  ).run();
+  await db.prepare('CREATE INDEX IF NOT EXISTS idx_candles_dataset_timestamp ON candles(dataset_id, timestamp)').run();
 
   await db.prepare(`
     CREATE TABLE IF NOT EXISTS raw_ingestions (
@@ -54,9 +55,24 @@ async function initializeSchema(db) {
     )
   `).run();
 
-  await db.prepare(
-    'CREATE INDEX IF NOT EXISTS idx_raw_ingestions_dataset_fetched ON raw_ingestions(dataset_id, fetched_at DESC)'
-  ).run();
+  await db.prepare('CREATE INDEX IF NOT EXISTS idx_raw_ingestions_dataset_fetched ON raw_ingestions(dataset_id, fetched_at DESC)').run();
+
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS events (
+      id TEXT PRIMARY KEY,
+      timestamp INTEGER NOT NULL,
+      category TEXT NOT NULL,
+      type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT,
+      source TEXT,
+      importance REAL,
+      asset_ids TEXT NOT NULL DEFAULT '[]',
+      metadata TEXT NOT NULL DEFAULT '{}'
+    )
+  `).run();
+
+  await db.prepare('CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(timestamp)').run();
 
   await db.prepare(`
     CREATE TABLE IF NOT EXISTS api_meta (
@@ -72,17 +88,26 @@ async function initializeSchema(db) {
     await db.prepare(
       `INSERT OR IGNORE INTO datasets
        (id, name, provider, symbol, kind, interval, currency, description, created_at, updated_at)
-       VALUES (?, ?, ?, ?, 'ohlcv', ?, ?, ?, ?, ?)`
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).bind(
-      d.id,
-      d.name,
-      d.provider,
-      d.symbol,
-      d.interval,
-      d.currency,
-      d.description,
-      now,
-      now
+      d.id, d.name, d.provider, d.symbol, d.kind || 'ohlcv', d.interval,
+      d.currency, d.description, now, now
+    ).run();
+  }
+
+  for (const [id, date, title, block, rewardBefore, rewardAfter, source] of HALVINGS) {
+    await db.prepare(
+      `INSERT OR IGNORE INTO events
+       (id, timestamp, category, type, title, description, source, importance, asset_ids, metadata)
+       VALUES (?, ?, 'Crypto', 'bitcoin_halving', ?, ?, ?, 1, ?, ?)`
+    ).bind(
+      id,
+      Date.parse(date + 'T00:00:00Z'),
+      title,
+      `Bitcoin block ${block}: reward ${rewardBefore} → ${rewardAfter} BTC`,
+      source,
+      JSON.stringify(['btc-usd']),
+      JSON.stringify({ date, block, rewardBefore, rewardAfter })
     ).run();
   }
 }
@@ -91,13 +116,8 @@ export async function ensureSchema(db) {
   if (schemaReady) return;
   if (!schemaPromise) {
     schemaPromise = initializeSchema(db)
-      .then(() => {
-        schemaReady = true;
-      })
-      .catch((error) => {
-        schemaPromise = null;
-        throw error;
-      });
+      .then(() => { schemaReady = true; })
+      .catch((error) => { schemaPromise = null; throw error; });
   }
   return schemaPromise;
 }
