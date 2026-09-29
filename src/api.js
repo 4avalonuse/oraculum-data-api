@@ -34,31 +34,32 @@ export async function handleApi(request, env) {
 
   if (url.pathname === '/api/health' && request.method === 'GET') {
     let db = false;
-    try {
-      await env.DB.prepare('SELECT 1').first();
-      db = true;
-    } catch (_) {}
-
-    return json({
-      ok: true,
-      service: 'oraculum-data-api',
-      provider: 'cloudflare-workers',
-      database: db ? 'd1' : 'unavailable',
-      timestamp: Date.now()
-    });
+    try { await env.DB.prepare('SELECT 1').first(); db = true; } catch (_) {}
+    return json({ ok: true, service: 'oraculum-data-api', provider: 'cloudflare-workers', database: db ? 'd1' : 'unavailable', timestamp: Date.now() });
   }
 
   if (url.pathname === '/api/datasets' && request.method === 'GET') {
     const result = await env.DB.prepare(
       'SELECT id, name, provider, symbol, kind, interval, currency, description, updated_at FROM datasets ORDER BY name'
     ).all();
-
-    console.log(JSON.stringify({
-      event: 'datasets_list',
-      count: result.results?.length || 0
-    }));
-
     return json({ ok: true, data: result.results || [] });
+  }
+
+  if (url.pathname === '/api/events' && request.method === 'GET') {
+    const result = await env.DB.prepare(
+      'SELECT id, timestamp, category, type, title, description, source, importance, asset_ids, metadata FROM events ORDER BY timestamp'
+    ).all();
+
+    return json({
+      ok: true,
+      data: (result.results || []).map(event => ({
+        ...event,
+        timestamp: Number(event.timestamp),
+        importance: event.importance == null ? null : Number(event.importance),
+        assetIds: JSON.parse(event.asset_ids || '[]'),
+        metadata: JSON.parse(event.metadata || '{}')
+      }))
+    });
   }
 
   const match = url.pathname.match(/^\/api\/datasets\/([^/]+)$/);
@@ -66,15 +67,7 @@ export async function handleApi(request, env) {
     const id = decodeURIComponent(match[1]);
     const dataset = await datasetMeta(env.DB, id);
     if (!dataset) return json({ ok: false, error: 'dataset_not_found' }, 404);
-
     const rows = await readDataset(env.DB, id);
-    console.log(JSON.stringify({
-      event: 'dataset_read',
-      datasetId: id,
-      bars: rows.length,
-      updatedAt: dataset.updated_at
-    }));
-
     return json(datasetView(dataset, rows));
   }
 
@@ -85,25 +78,12 @@ export async function handleApi(request, env) {
     if (!dataset) return json({ ok: false, error: 'dataset_not_found' }, 404);
 
     const report = await ingestDataset(env.DB, {
-      id: dataset.id,
-      provider: dataset.provider,
-      symbol: dataset.symbol,
-      interval: dataset.interval
+      id: dataset.id, provider: dataset.provider, symbol: dataset.symbol, interval: dataset.interval
     });
     const freshDataset = await datasetMeta(env.DB, id);
     const rows = await readDataset(env.DB, id);
 
-    console.log(JSON.stringify({
-      event: 'manual_refresh_complete',
-      datasetId: id,
-      bars: rows.length,
-      report
-    }));
-
-    return json({
-      ...datasetView(freshDataset, rows),
-      refresh: report
-    });
+    return json({ ...datasetView(freshDataset, rows), refresh: report });
   }
 
   const rawMatch = url.pathname.match(/^\/api\/datasets\/([^/]+)\/raw$/);
@@ -112,35 +92,17 @@ export async function handleApi(request, env) {
     const result = await env.DB.prepare(
       `SELECT id, provider, symbol, fetched_at, request_status, row_count,
               normalized_count, rejected_count, error
-       FROM raw_ingestions
-       WHERE dataset_id = ?
-       ORDER BY fetched_at DESC
-       LIMIT 20`
+       FROM raw_ingestions WHERE dataset_id = ? ORDER BY fetched_at DESC LIMIT 20`
     ).bind(id).all();
     return json({ ok: true, data: result.results || [] });
   }
 
   const ingestMatch = url.pathname.match(/^\/api\/ingest\/([^/]+)$/);
   if (ingestMatch && request.method === 'POST') {
-    if (!authorized(request, env)) {
-      return json({
-        ok: false,
-        error: env.INGEST_TOKEN ? 'unauthorized' : 'ingest_token_not_configured'
-      }, 401);
-    }
-
+    if (!authorized(request, env)) return json({ ok: false, error: env.INGEST_TOKEN ? 'unauthorized' : 'ingest_token_not_configured' }, 401);
     const id = decodeURIComponent(ingestMatch[1]);
-    const dataset = await env.DB.prepare(
-      'SELECT id, provider, symbol, interval FROM datasets WHERE id = ?'
-    ).bind(id).first();
-
+    const dataset = await env.DB.prepare('SELECT id, provider, symbol, interval FROM datasets WHERE id = ?').bind(id).first();
     if (!dataset) return json({ ok: false, error: 'dataset_not_found' }, 404);
-
-    console.log(JSON.stringify({
-      event: 'protected_ingest_start',
-      datasetId: id
-    }));
-
     return json({ ok: true, data: await ingestDataset(env.DB, dataset) });
   }
 
