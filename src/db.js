@@ -7,6 +7,33 @@ const HALVINGS = [
   ['btc-halving-2024', '2024-04-20', 'Bitcoin Halving 2024', 840000, 6.25, 3.125, 'Bitcoin.org']
 ];
 
+const MARKET_EVENTS = [
+  {
+    id: 'strategy-btc-sale-2026-05', date: '2026-05-31', category: 'Institutional', type: 'institutional_btc_sale',
+    title: 'Strategy vendeu 32 BTC',
+    description: 'Strategy vendeu 32 BTC por aproximadamente US$2,5 milhões; primeira venda desde dezembro de 2022.',
+    source: 'The Block', importance: 0.8, metadata: { btc: 32, amountUsd: 2500000, averagePriceUsd: 77135 }
+  },
+  {
+    id: 'btc-og-whale-80000-2025-07', date: '2025-07-04', category: 'OnChain', type: 'whale_movement',
+    title: 'Baleia antiga movimenta mais de 80.000 BTC',
+    description: 'Mais de 80.000 BTC permaneceram dormentes por cerca de 14 anos antes de serem transferidos para novos endereços.',
+    source: 'The Block / Arkham', importance: 1, metadata: { btc: 80000, dormancyYears: 14 }
+  },
+  {
+    id: 'btc-spot-etf-approval-2024-01', date: '2024-01-10', category: 'Regulation', type: 'spot_etf_approval',
+    title: 'SEC aprova ETFs spot de Bitcoin',
+    description: 'A SEC aprovou a listagem e negociação de diversos produtos negociados em bolsa de Bitcoin spot nos EUA.',
+    source: 'SEC', importance: 1, metadata: { tradingStartDate: '2024-01-11' }
+  },
+  {
+    id: 'mtgox-repayments-2024-07', date: '2024-07-05', category: 'Market', type: 'exchange_repayment_flow',
+    title: 'Mt. Gox inicia fluxo de restituição de BTC',
+    description: 'A restituição de Bitcoin aos credores da Mt. Gox aumentou a preocupação com possível pressão de venda e coincidiu com forte volatilidade do BTC.',
+    source: 'Reuters', importance: 0.9, metadata: { entity: 'Mt. Gox', flowType: 'creditor_repayments' }
+  }
+];
+
 let schemaReady = false;
 let schemaPromise = null;
 
