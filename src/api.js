@@ -47,7 +47,7 @@ export async function handleApi(request, env) {
 
   if (url.pathname === '/api/events' && request.method === 'GET') {
     const result = await env.DB.prepare(
-      'SELECT id, timestamp, category, type, title, description, source, importance, asset_ids, metadata FROM events ORDER BY timestamp'
+      'SELECT id, timestamp, category, type, title, description, source, importance, asset_ids, metadata, scope FROM events ORDER BY timestamp'
     ).all();
 
     return json({
@@ -57,6 +57,7 @@ export async function handleApi(request, env) {
         timestamp: Number(event.timestamp),
         importance: event.importance == null ? null : Number(event.importance),
         assetIds: JSON.parse(event.asset_ids || '[]'),
+        scope: event.scope || 'asset',
         metadata: JSON.parse(event.metadata || '{}')
       }))
     });
@@ -78,7 +79,7 @@ export async function handleApi(request, env) {
     if (!dataset) return json({ ok: false, error: 'dataset_not_found' }, 404);
 
     const report = await ingestDataset(env.DB, {
-      id: dataset.id, provider: dataset.provider, symbol: dataset.symbol, interval: dataset.interval
+      id: dataset.id, provider: dataset.provider, symbol: dataset.symbol, kind: dataset.kind, interval: dataset.interval
     });
     const freshDataset = await datasetMeta(env.DB, id);
     const rows = await readDataset(env.DB, id);
@@ -101,7 +102,7 @@ export async function handleApi(request, env) {
   if (ingestMatch && request.method === 'POST') {
     if (!authorized(request, env)) return json({ ok: false, error: env.INGEST_TOKEN ? 'unauthorized' : 'ingest_token_not_configured' }, 401);
     const id = decodeURIComponent(ingestMatch[1]);
-    const dataset = await env.DB.prepare('SELECT id, provider, symbol, interval FROM datasets WHERE id = ?').bind(id).first();
+    const dataset = await env.DB.prepare('SELECT id, provider, symbol, kind, interval FROM datasets WHERE id = ?').bind(id).first();
     if (!dataset) return json({ ok: false, error: 'dataset_not_found' }, 404);
     return json({ ok: true, data: await ingestDataset(env.DB, dataset) });
   }
