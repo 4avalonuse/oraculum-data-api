@@ -174,3 +174,5 @@ export async function ensureSchema(db) {
   }
   return schemaPromise;
 }
+
+// Macro event layer reviewed against Federal Reserve historical policy data.
