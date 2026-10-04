@@ -27,8 +27,9 @@ As observações válidas são convertidas para o formato canônico do Oraculum 
 
 ## Providers
 
-- Yahoo Finance Chart: OHLCV via `/v8/finance/chart/{symbol}`.
+- Yahoo Finance Chart: OHLCV via `/v8/finance/chart/{symbol}` e séries de contexto via `close`.
 - Binance Spot market data: klines via `/api/v3/klines`.
+- FRED: séries econômicas via CSV público, incluindo `CPIAUCSL`.
 
 Os adapters ficam em `src/providers/`, mas continuam fazendo parte do mesmo backend.
 
@@ -57,7 +58,11 @@ Durante o deploy, o Worker também cria a tabela `raw_ingestions` de forma idemp
 
 ## Regra arquitetural
 
-Providers externos não são a API pública. O OChart conversa com a Data API, e a Data API conversa com Yahoo, Binance, FRED etc.
+Providers externos não são a API pública. O OChart/Oraculum conversa com a Data API, e a Data API conversa com Yahoo, Binance, FRED etc.
+
+### Contexto registrado
+
+O catálogo base inclui CPI dos EUA, ouro, petróleo WTI, S&P 500 e DXY como datasets `kind=series`. Eles usam o mesmo fluxo de ingestão, RAW, normalização e D1; não existe um segundo backend. Séries são persistidas no contrato temporal existente usando o valor em `close`.
 
 
 ## Estrutura
