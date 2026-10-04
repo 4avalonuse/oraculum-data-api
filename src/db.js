@@ -1,4 +1,5 @@
 import { DATASETS } from './datasets.js';
+import { MACRO_EVENTS } from './events/macro.js';
 
 const HALVINGS = [
   ['btc-halving-2012', '2012-11-28', 'Bitcoin Halving 2012', 210000, 50, 25, 'Bitcoin.org'],
