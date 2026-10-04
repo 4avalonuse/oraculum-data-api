@@ -80,3 +80,6 @@ src/
 ```
 
 A regra é manter o backend pequeno: `index.js` coordena o ciclo de vida, `api.js` expõe HTTP, `db.js` cuida apenas do bootstrap do banco, e providers nunca vazam para o OChart.
+
+
+Event model: asset, market, global scopes.
