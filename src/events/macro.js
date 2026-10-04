@@ -1,0 +1,9 @@
+export const MACRO_EVENTS = [
+  { id:'macro-policy-2020-03-16', date:'2020-03-16', category:'macro', type:'monetary_policy', title:'Mudanca emergencial de politica monetaria', description:'Evento macroeconomico global associado ao choque da pandemia.', source:'Federal Reserve', importance:1 },
+  { id:'macro-policy-2022-03-16', date:'2022-03-16', category:'macro', type:'monetary_policy', title:'Inicio do aperto monetario', description:'Marco do inicio do ciclo de aperto monetario dos Estados Unidos.', source:'Federal Reserve', importance:.9 },
+  { id:'macro-policy-2022-06-16', date:'2022-06-16', category:'macro', type:'monetary_policy', title:'Aperto monetario intensificado', description:'Marco relevante do ciclo de altas de juros de 2022.', source:'Federal Reserve', importance:1 },
+  { id:'macro-policy-2023-07-27', date:'2023-07-27', category:'macro', type:'monetary_policy', title:'Pico do ciclo de juros', description:'Marco do nivel maximo do ciclo de aperto monetario iniciado em 2022.', source:'Federal Reserve', importance:.9 },
+  { id:'macro-policy-2024-09-18', date:'2024-09-18', category:'macro', type:'monetary_policy', title:'Inicio da flexibilizacao monetaria', description:'Marco da retomada do ciclo de reducao de juros.', source:'Federal Reserve', importance:1 },
+  { id:'macro-policy-2025-09-17', date:'2025-09-17', category:'macro', type:'monetary_policy', title:'Retomada dos cortes', description:'Marco de nova reducao de juros em 2025.', source:'Federal Reserve', importance:.8 },
+  { id:'macro-policy-2025-12-10', date:'2025-12-10', category:'macro', type:'monetary_policy', title:'Nova reducao de juros', description:'Marco adicional da flexibilizacao monetaria.', source:'Federal Reserve', importance:.8 }
+];
