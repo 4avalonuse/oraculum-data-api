@@ -20,11 +20,6 @@ export async function fetchFred({ symbol }) {
   url.searchParams.set('id', symbol);
   url.searchParams.set('cosd', '1900-01-01');
   url.searchParams.set('coed', new Date().toISOString().slice(0, 10));
-  url.searchParams.set('fq', 'd');
-  url.searchParams.set('fam', 'avg');
-  url.searchParams.set('fgst', 'lin');
-  url.searchParams.set('fgsnd', '2020-02-01');
-  url.searchParams.set('line_index', '1');
 
   const response = await fetch(url, {
     headers: { 'User-Agent': 'Oraculum-Data-API/1.0', Accept: 'text/csv' }
