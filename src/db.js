@@ -148,6 +148,10 @@ async function initializeSchema(db) {
     ).run();
   }
 
+  for (const event of MACRO_EVENTS) {
+    await db.prepare(`INSERT OR IGNORE INTO events (id, timestamp, category, type, title, description, source, importance, asset_ids, metadata, scope) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(event.id, Date.parse(event.date + 'T00:00:00Z'), event.category, event.type, event.title, event.description, event.source, event.importance, JSON.stringify([]), JSON.stringify({ date: event.date, ...(event.metadata || {}) }), 'global').run();
+  }
+
   for (const [id, date, title, block, rewardBefore, rewardAfter, source] of HALVINGS) {
     await db.prepare(
       `INSERT OR IGNORE INTO events
