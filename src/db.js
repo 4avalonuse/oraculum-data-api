@@ -95,11 +95,16 @@ async function initializeSchema(db) {
       source TEXT,
       importance REAL,
       asset_ids TEXT NOT NULL DEFAULT '[]',
-      metadata TEXT NOT NULL DEFAULT '{}'
+      metadata TEXT NOT NULL DEFAULT '{}',
+      scope TEXT NOT NULL DEFAULT 'asset'
     )
   `).run();
 
   await db.prepare('CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(timestamp)').run();
+
+  await db.prepare("ALTER TABLE events ADD COLUMN scope TEXT NOT NULL DEFAULT 'asset'").run().catch(() => {});
+
+
 
   await db.prepare(`
     CREATE TABLE IF NOT EXISTS api_meta (
@@ -125,8 +130,8 @@ async function initializeSchema(db) {
   for (const event of MARKET_EVENTS) {
     await db.prepare(
       `INSERT OR IGNORE INTO events
-       (id, timestamp, category, type, title, description, source, importance, asset_ids, metadata)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       (id, timestamp, category, type, title, description, source, importance, asset_ids, metadata, scope)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).bind(
       event.id,
       Date.parse(event.date + 'T00:00:00Z'),
@@ -137,6 +142,7 @@ async function initializeSchema(db) {
       event.source,
       event.importance,
       JSON.stringify(['btc-usd']),
+      'asset',
       JSON.stringify({ date: event.date, ...event.metadata })
     ).run();
   }
@@ -144,8 +150,8 @@ async function initializeSchema(db) {
   for (const [id, date, title, block, rewardBefore, rewardAfter, source] of HALVINGS) {
     await db.prepare(
       `INSERT OR IGNORE INTO events
-       (id, timestamp, category, type, title, description, source, importance, asset_ids, metadata)
-       VALUES (?, ?, 'Crypto', 'bitcoin_halving', ?, ?, ?, 1, ?, ?)`
+       (id, timestamp, category, type, title, description, source, importance, asset_ids, metadata, scope)
+       VALUES (?, ?, 'Crypto', 'bitcoin_halving', ?, ?, ?, 1, ?, ?, ?)`
     ).bind(
       id,
       Date.parse(date + 'T00:00:00Z'),
@@ -153,7 +159,8 @@ async function initializeSchema(db) {
       `Bitcoin block ${block}: reward ${rewardBefore} → ${rewardAfter} BTC`,
       source,
       JSON.stringify(['btc-usd']),
-      JSON.stringify({ date, block, rewardBefore, rewardAfter })
+      JSON.stringify({ date, block, rewardBefore, rewardAfter }),
+      'asset'
     ).run();
   }
 }
