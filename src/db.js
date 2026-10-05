@@ -119,9 +119,18 @@ async function initializeSchema(db) {
 
   for (const d of DATASETS) {
     await db.prepare(
-      `INSERT OR IGNORE INTO datasets
+      `INSERT INTO datasets
        (id, name, provider, symbol, kind, interval, currency, description, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         name = excluded.name,
+         provider = excluded.provider,
+         symbol = excluded.symbol,
+         kind = excluded.kind,
+         interval = excluded.interval,
+         currency = excluded.currency,
+         description = excluded.description,
+         updated_at = excluded.updated_at`
     ).bind(
       d.id, d.name, d.provider, d.symbol, d.kind || 'ohlcv', d.interval,
       d.currency, d.description, now, now
