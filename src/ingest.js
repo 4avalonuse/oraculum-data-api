@@ -3,6 +3,7 @@ import { fetchBinance } from './providers/binance.js';
 import { fetchFred } from './providers/fred.js';
 import { normalizeSeries } from './normalize-series.js';
 import { normalizeCandles } from './normalize.js';
+import { assessCandleQuality } from './quality/index.js';
 
 const providers = { yahoo: fetchYahoo, 'binance-us': fetchBinance, fred: fetchFred };
 const MAX_HISTORY_BARS = 10000;
@@ -113,6 +114,7 @@ export async function ingestDataset(db, dataset) {
   const continuity = dataset.kind === 'series'
     ? { gaps: [], checked: result.rows.length }
     : auditContinuity(result.rows, dataset.interval);
+
   if (continuity.gaps.length) {
     console.warn(JSON.stringify({
       event: 'ingestion_continuity_warning',
@@ -136,6 +138,29 @@ export async function ingestDataset(db, dataset) {
     ? normalizeSeries(result.rows)
     : normalizeCandles(result.rows);
 
+  const quality = dataset.kind === 'series'
+    ? { candles: normalized.candles, anomalies: [], quality: null }
+    : assessCandleQuality(normalized.candles);
+
+  if (quality.anomalies.length) {
+    console.warn(JSON.stringify({
+      event: 'ingestion_anomalies_detected',
+      datasetId: dataset.id,
+      provider: result.provider,
+      symbol: result.symbol,
+      anomalyCount: quality.anomalies.length,
+      anomalies: quality.anomalies
+    }));
+
+    for (const anomaly of quality.anomalies) {
+      await db.prepare(
+        'DELETE FROM candles WHERE dataset_id = ? AND timestamp = ?'
+      ).bind(dataset.id, anomaly.timestamp).run();
+    }
+  }
+
+  const acceptedCandles = quality.candles;
+
   await db.prepare(
     `INSERT INTO raw_ingestions
      (dataset_id, provider, symbol, fetched_at, request_status, payload, row_count, normalized_count, rejected_count)
@@ -147,21 +172,22 @@ export async function ingestDataset(db, dataset) {
     fetchedAt,
     JSON.stringify(result.raw),
     result.rows.length,
-    normalized.candles.length,
-    normalized.rejected.length
+    acceptedCandles.length,
+    normalized.rejected.length + quality.anomalies.length
   ).run();
 
   console.log(JSON.stringify({
     event: 'ingestion_normalized',
     datasetId: dataset.id,
     fetched: result.rows.length,
-    normalized: normalized.candles.length,
+    normalized: acceptedCandles.length,
     rejected: normalized.rejected.length,
+    anomalies: quality.anomalies.length,
     duplicatesRemoved: normalized.duplicatesRemoved
   }));
 
-  for (let i = 0; i < normalized.candles.length; i += 100) {
-    const chunk = normalized.candles.slice(i, i + 100);
+  for (let i = 0; i < acceptedCandles.length; i += 100) {
+    const chunk = acceptedCandles.slice(i, i + 100);
     const statement = db.prepare(
       `INSERT INTO candles
        (dataset_id, timestamp, open, high, low, close, volume)
@@ -190,8 +216,9 @@ export async function ingestDataset(db, dataset) {
     datasetId: dataset.id,
     provider: result.provider,
     fetched: result.rows.length,
-    normalized: normalized.candles.length,
+    normalized: acceptedCandles.length,
     rejected: normalized.rejected.length,
+    anomalies: quality.anomalies.length,
     duplicatesRemoved: normalized.duplicatesRemoved,
     existingCount,
     finalCount: Number(finalCount?.count || 0),
@@ -210,7 +237,7 @@ export async function ingestDataset(db, dataset) {
 
 export async function ingestAll(db) {
   const result = await db.prepare(
-    `SELECT id, provider, symbol, interval
+    `SELECT id, provider, symbol, kind, interval
      FROM datasets
      WHERE provider IN ('yahoo', 'binance-us', 'fred')
      ORDER BY id`
