@@ -25,6 +25,8 @@ Cada ingestão preserva o payload bruto do provider em `raw_ingestions`, junto c
 
 As observações válidas são convertidas para o formato canônico do Oraculum e armazenadas em `candles`. Duplicatas são consolidadas por `dataset_id + timestamp`; registros inválidos são descartados da camada normalizada, mas o payload bruto continua preservado.
 
+Depois da normalização estrutural, datasets OHLCV passam por uma segunda camada de **qualidade de dados** (`src/quality/`). Ela procura anomalias isoladas que saltam e retornam imediatamente, incluindo corpos de preço e pavios extremos. A camada não assume que toda alta/queda forte é erro: movimentos sustentados permanecem válidos. Quando uma anomalia é identificada, o candle é excluído da série NORMALIZED usada pelo Oraculum e seu timestamp/classificação ficam registrados no relatório de ingestão; o payload RAW continua preservado para auditoria.
+
 ## Providers
 
 - Yahoo Finance Chart: OHLCV via `/v8/finance/chart/{symbol}` e séries de contexto via `close`.
