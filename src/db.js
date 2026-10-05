@@ -118,6 +118,17 @@ async function initializeSchema(db) {
   const now = Date.now();
 
   for (const d of DATASETS) {
+    const existingDataset = await db.prepare(
+      'SELECT provider, symbol FROM datasets WHERE id = ?'
+    ).bind(d.id).first();
+
+    if (existingDataset && (
+      existingDataset.provider !== d.provider ||
+      existingDataset.symbol !== d.symbol
+    )) {
+      await db.prepare('DELETE FROM candles WHERE dataset_id = ?').bind(d.id).run();
+    }
+
     await db.prepare(
       `INSERT INTO datasets
        (id, name, provider, symbol, kind, interval, currency, description, created_at, updated_at)
