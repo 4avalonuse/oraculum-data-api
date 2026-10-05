@@ -80,7 +80,7 @@ export function detectCandleAnomalies(candles, options = {}) {
       anomalies.push({
         timestamp: current.timestamp,
         index: i,
-        type: isolatedWickSpike ? 'wick_spike' : 'price_spike',
+        type: isolatedPriceSpike ? 'price_spike' : 'wick_spike',
         score: Number(robustScore.toFixed(2)),
         returnBefore: Number((Math.exp(before) - 1).toFixed(6)),
         returnAfter: Number((Math.exp(after) - 1).toFixed(6)),
