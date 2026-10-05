@@ -89,6 +89,28 @@ export async function ingestDataset(db, dataset) {
       interval: dataset.interval,
       historyBars
     });
+
+    // If a dataset changes provider identity (for example JUP-USD -> JUP29210-USD),
+    // never mix the old series with the new one. The normalized D1 is rebuilt.
+    const latestIngestion = await db.prepare(
+      'SELECT provider, symbol FROM raw_ingestions WHERE dataset_id = ? AND request_status = \'ok\' ORDER BY fetched_at DESC LIMIT 1'
+    ).bind(dataset.id).first();
+    const identityChanged = latestIngestion && (
+      latestIngestion.provider !== dataset.provider ||
+      latestIngestion.symbol !== dataset.symbol
+    );
+    if (identityChanged) {
+      await db.prepare('DELETE FROM candles WHERE dataset_id = ?').bind(dataset.id).run();
+      existingCount = 0;
+      console.log(JSON.stringify({
+        event: 'ingestion_identity_reset',
+        datasetId: dataset.id,
+        previousProvider: latestIngestion.provider,
+        previousSymbol: latestIngestion.symbol,
+        provider: dataset.provider,
+        symbol: dataset.symbol
+      }));
+    }
   } catch (error) {
     const message = String(error.message || error);
     await db.prepare(
