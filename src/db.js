@@ -1,5 +1,4 @@
 import { DATASETS } from './datasets.js';
-import { ingestDataset } from './ingest.js';
 import { MACRO_EVENTS } from './events/macro.js';
 
 const HALVINGS = [
@@ -149,13 +148,8 @@ async function initializeSchema(db) {
     ).run();
   }
 
-  // Synthetic TEST datasets are deterministic and seeded directly into D1 on first initialization.
-  for (const d of DATASETS.filter(item => item.provider === 'synthetic')) {
-    const existing = await db.prepare('SELECT COUNT(*) AS count FROM candles WHERE dataset_id = ?').bind(d.id).first();
-    if (Number(existing?.count || 0) === 0) {
-      await ingestDataset(db, { id: d.id, provider: d.provider, symbol: d.symbol, kind: d.kind, interval: d.interval });
-    }
-  }
+  // TEST datasets are provisioned in the catalog but populated lazily by the normal refresh/load path.
+  // This keeps schema initialization fast and cannot block the existing BTC startup path.
 
   for (const event of MARKET_EVENTS) {
     await db.prepare(
