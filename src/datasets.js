@@ -9,11 +9,24 @@ function buildOhlcvDatasets({ assetId, assetName, provider, symbol, currency, pr
   }));
 }
 
+
+function buildSyntheticDatasets() {
+  return ['A', 'B', 'C'].flatMap((id) => buildOhlcvDatasets({
+    assetId: `test-${id.toLowerCase()}`,
+    assetName: `TEST-${id} · Dados controlados`,
+    provider: 'synthetic',
+    symbol: `TEST-${id}`,
+    currency: 'TEST',
+    providerLabel: 'Oraculum Synthetic Lab'
+  }));
+}
+
 function buildSeriesDataset({ id, name, provider = 'yahoo', symbol, interval = '1d', currency = 'USD', description }) {
   return { id, name, provider, symbol, interval, currency, kind: 'series', description };
 }
 
 export const DATASETS = [
+  ...buildSyntheticDatasets(),
   ...buildOhlcvDatasets({ assetId: 'btc-usd', assetName: 'Bitcoin / USD', provider: 'yahoo', symbol: 'BTC-USD', currency: 'USD', providerLabel: 'Yahoo Finance' }),
   ...buildOhlcvDatasets({ assetId: 'btc-usd', assetName: 'Bitcoin / USD', provider: 'binance-us', symbol: 'BTCUSD', currency: 'USD', providerLabel: 'Binance.US' }),
   ...buildOhlcvDatasets({ assetId: 'sol-usd', assetName: 'Solana / USD', provider: 'yahoo', symbol: 'SOL-USD', currency: 'USD', providerLabel: 'Yahoo Finance' }),
