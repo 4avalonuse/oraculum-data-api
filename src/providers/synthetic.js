@@ -17,7 +17,7 @@ function baseTimestamp(interval, bars) {
 }
 
 function controlledReturn(kind, i) {
-  const a = 0.001;
+  const a = [0.0005, 0.0010, 0.0015, 0.0008, 0.0012, 0.0007][i % 6];
   if (kind === 'A') return a;
   if (kind === 'B') return 2 * a + 0.0005;
 
