@@ -1,11 +1,12 @@
 import { fetchYahoo } from './providers/yahoo.js';
 import { fetchBinance } from './providers/binance.js';
 import { fetchFred } from './providers/fred.js';
+import { fetchSynthetic } from './providers/synthetic.js';
 import { normalizeSeries } from './normalize-series.js';
 import { normalizeCandles } from './normalize.js';
 import { assessCandleQuality } from './quality/index.js';
 
-const providers = { yahoo: fetchYahoo, 'binance-us': fetchBinance, fred: fetchFred };
+const providers = { yahoo: fetchYahoo, 'binance-us': fetchBinance, fred: fetchFred, synthetic: fetchSynthetic };
 const MAX_HISTORY_BARS = 10000;
 
 function expectedNextTimestamp(timestamp, interval) {
@@ -72,9 +73,11 @@ export async function ingestDataset(db, dataset) {
     ).bind(dataset.id).first();
     existingCount = Number(existing?.count || 0);
 
-    const historyBars = dataset.kind === 'series'
-      ? MAX_HISTORY_BARS
-      : (existingCount < MAX_HISTORY_BARS ? MAX_HISTORY_BARS : 1000);
+    const historyBars = dataset.provider === 'synthetic'
+      ? 500
+      : dataset.kind === 'series'
+        ? MAX_HISTORY_BARS
+        : (existingCount < MAX_HISTORY_BARS ? MAX_HISTORY_BARS : 1000);
 
     console.log(JSON.stringify({
       event: 'ingestion_plan',
@@ -261,7 +264,7 @@ export async function ingestAll(db) {
   const result = await db.prepare(
     `SELECT id, provider, symbol, kind, interval
      FROM datasets
-     WHERE provider IN ('yahoo', 'binance-us', 'fred')
+     WHERE provider IN ('yahoo', 'binance-us', 'fred', 'synthetic')
      ORDER BY id`
   ).all();
 
