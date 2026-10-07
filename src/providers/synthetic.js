@@ -21,8 +21,8 @@ function controlledReturn(kind, i) {
   if (kind === 'A') return a;
   if (kind === 'B') return 2 * a + 0.0005;
 
-  // TEST-C: deterministic AR(1)-like return process with changing shocks.
-  const shock = [0.0012, -0.0008, 0.0006, -0.0002, 0.0010, -0.0005][i % 6];
+  // TEST-C: deterministic AR(1) return process with smooth, non-random shocks.
+  const shock = 0.0008 * Math.sin(i * 1.7) + 0.0003 * Math.cos(i * 0.43);
   return 0.0003 + 0.65 * shock;
 }
 
@@ -37,7 +37,7 @@ export function generateSyntheticRows(symbol, interval, bars = 500) {
   for (let i = 0; i < bars; i++) {
     let r = controlledReturn(kind, i);
     if (kind === 'C') {
-      const shock = [0.0012, -0.0008, 0.0006, -0.0002, 0.0010, -0.0005][i % 6];
+      const shock = 0.0008 * Math.sin(i * 1.7) + 0.0003 * Math.cos(i * 0.43);
       r = 0.0003 + 0.65 * previousReturn + shock;
       previousReturn = r - 0.0003;
     }
