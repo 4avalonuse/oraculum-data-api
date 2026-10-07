@@ -16,7 +16,7 @@ function buildSyntheticDatasets() {
     assetName: `TEST-${id} · Dados controlados`,
     provider: 'synthetic',
     symbol: `TEST-${id}`,
-    currency: 'TEST',
+    currency: 'USD',
     providerLabel: 'Oraculum Synthetic Lab'
   }));
 }
