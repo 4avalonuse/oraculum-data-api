@@ -1,4 +1,5 @@
 import { DATASETS } from './datasets.js';
+import { ingestDataset } from './ingest.js';
 import { MACRO_EVENTS } from './events/macro.js';
 
 const HALVINGS = [
@@ -146,6 +147,14 @@ async function initializeSchema(db) {
       d.id, d.name, d.provider, d.symbol, d.kind || 'ohlcv', d.interval,
       d.currency, d.description, now, now
     ).run();
+  }
+
+  // Synthetic TEST datasets are deterministic and seeded directly into D1 on first initialization.
+  for (const d of DATASETS.filter(item => item.provider === 'synthetic')) {
+    const existing = await db.prepare('SELECT COUNT(*) AS count FROM candles WHERE dataset_id = ?').bind(d.id).first();
+    if (Number(existing?.count || 0) === 0) {
+      await ingestDataset(db, { id: d.id, provider: d.provider, symbol: d.symbol, kind: d.kind, interval: d.interval });
+    }
   }
 
   for (const event of MARKET_EVENTS) {
