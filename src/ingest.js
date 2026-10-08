@@ -141,15 +141,6 @@ export async function ingestDataset(db, dataset) {
 
   const acceptedCandles = quality.candles;
 
-  await recordSuccessfulIngestion(
-    db,
-    dataset.id,
-    result,
-    fetchedAt,
-    acceptedCandles.length,
-    normalized.rejected.length + quality.anomalies.length
-  );
-
   console.log(JSON.stringify({
     event: 'ingestion_normalized',
     datasetId: dataset.id,
@@ -161,6 +152,16 @@ export async function ingestDataset(db, dataset) {
   }));
 
   const finalCount = await persistCandles(db, dataset.id, acceptedCandles, fetchedAt);
+
+  // Mark the ingestion successful only after candle persistence completes.
+  await recordSuccessfulIngestion(
+    db,
+    dataset.id,
+    result,
+    fetchedAt,
+    acceptedCandles.length,
+    normalized.rejected.length + quality.anomalies.length
+  );
 
   const report = {
     datasetId: dataset.id,
