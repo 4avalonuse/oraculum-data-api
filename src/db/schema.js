@@ -85,4 +85,12 @@ export async function ensureTables(db) {
       updated_at INTEGER NOT NULL
     )
   `).run();
+
+  // Atomic lease used to ensure only one request refreshes a dataset at a time.
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS refresh_locks (
+      dataset_id TEXT PRIMARY KEY,
+      locked_until INTEGER NOT NULL
+    )
+  `).run();
 }
