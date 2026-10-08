@@ -72,11 +72,15 @@ export async function ensureTables(db) {
     'CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(timestamp)'
   ).run();
 
-  // Safe for both older and newer databases: the error is expected if the
-  // column already exists. Keep this migration here, beside the schema.
-  await db.prepare(
-    "ALTER TABLE events ADD COLUMN scope TEXT NOT NULL DEFAULT 'asset'"
-  ).run().catch(() => {});
+  // Apply the compatibility migration only when an older database lacks
+  // the column; do not use a broad catch that can hide unrelated DB failures.
+  const eventColumns = await db.prepare('PRAGMA table_info(events)').all();
+  const hasScope = (eventColumns.results || []).some((column) => column.name === 'scope');
+  if (!hasScope) {
+    await db.prepare(
+      "ALTER TABLE events ADD COLUMN scope TEXT NOT NULL DEFAULT 'asset'"
+    ).run();
+  }
 
   await db.prepare(`
     CREATE TABLE IF NOT EXISTS api_meta (
