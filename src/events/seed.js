@@ -1,5 +1,7 @@
 import { MACRO_EVENTS } from './macro.js';
 
+export const EVENT_SEED_VERSION = '2026-10-08-v1';
+
 const HALVINGS = [
   ['btc-halving-2012', '2012-11-28', 'Bitcoin Halving 2012', 210000, 50, 25, 'Bitcoin.org'],
   ['btc-halving-2016', '2016-07-09', 'Bitcoin Halving 2016', 420000, 25, 12.5, 'Bitcoin.org'],
@@ -35,6 +37,11 @@ const MARKET_EVENTS = [
 ];
 
 export async function seedEvents(db) {
+  const seedState = await db.prepare(
+    'SELECT value FROM api_meta WHERE key = ?'
+  ).bind('events_seed_version').first();
+  if (seedState?.value === EVENT_SEED_VERSION) return;
+
   for (const event of MARKET_EVENTS) {
     await db.prepare(
       `INSERT OR IGNORE INTO events
@@ -75,4 +82,9 @@ export async function seedEvents(db) {
       'asset'
     ).run();
   }
+
+  
+  await db.prepare(
+    'INSERT INTO api_meta (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at'
+  ).bind('events_seed_version', EVENT_SEED_VERSION, Date.now()).run();
 }
