@@ -81,17 +81,26 @@ export async function handleApi(request, env) {
 
     const cachedRows = await readDataset(env.DB, id);
     const cooldown = await getRefreshState(env.DB, dataset);
-    if (cachedRows.length && cooldown.coolingDown) {
+    if (cooldown.coolingDown) {
+      if (cachedRows.length) {
+        return json({
+          ...datasetView(dataset, cachedRows),
+          refresh: {
+            skipped: true,
+            reason: cooldown.reason,
+            cached: true,
+            lastFetchedAt: cooldown.lastFetchedAt,
+            nextRefreshAfterMs: cooldown.nextRefreshAfterMs
+          }
+        });
+      }
       return json({
-        ...datasetView(dataset, cachedRows),
-        refresh: {
-          skipped: true,
-          reason: cooldown.reason,
-          cached: true,
-          lastFetchedAt: cooldown.lastFetchedAt,
-          nextRefreshAfterMs: cooldown.nextRefreshAfterMs
-        }
-      });
+        ok: false,
+        error: cooldown.reason,
+        message: 'Refresh is temporarily throttled. Please retry after the indicated delay.',
+        lastFetchedAt: cooldown.lastFetchedAt,
+        retryAfterMs: cooldown.nextRefreshAfterMs
+      }, 429);
     }
 
     const leaseAcquired = await claimRefreshLease(env.DB, id);
