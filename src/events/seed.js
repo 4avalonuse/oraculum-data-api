@@ -1,5 +1,6 @@
 import { MACRO_EVENTS } from './macro.js';
 
+// Increment this version whenever MARKET_EVENTS, MACRO_EVENTS, or HALVINGS change.
 export const EVENT_SEED_VERSION = '2026-10-08-v1';
 
 const HALVINGS = [
