@@ -149,6 +149,14 @@ export async function handleApi(request, env) {
     const id = decodeURIComponent(ingestMatch[1]);
     const dataset = await env.DB.prepare('SELECT id, provider, symbol, kind, interval FROM datasets WHERE id = ?').bind(id).first();
     if (!dataset) return json({ ok: false, error: 'dataset_not_found' }, 404);
+    const leaseAcquired = await claimRefreshLease(env.DB, id);
+    if (!leaseAcquired) {
+      return json({
+        ok: false,
+        error: 'refresh_in_progress',
+        message: 'A refresh for this dataset is already in progress. Please retry shortly.'
+      }, 409);
+    }
     return json({ ok: true, data: await ingestDataset(env.DB, dataset) });
   }
 
