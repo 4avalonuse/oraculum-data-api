@@ -1,6 +1,6 @@
 import { ingestDataset } from './ingest.js';
 import { datasetView } from './contract.js';
-import { getRecentSuccessfulIngestion, getRefreshCooldownState } from './cache/refresh-policy.js';
+import { getRefreshCooldownState } from './cache/refresh-policy.js';
 
 const JSON_HEADERS = {
   'Content-Type': 'application/json; charset=utf-8',
