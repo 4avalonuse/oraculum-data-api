@@ -52,13 +52,22 @@ export function detectCandleAnomalies(candles, options = {}) {
 
   if (
     candles.length >= 3 &&
-    scaleRatio(candles[0].close, candles[1].close) >= 2 &&
-    scaleRatio(candles[1].close, candles[2].close) <= 1.10
+    (
+      (
+        scaleRatio(candles[0].close, candles[1].close) >= 2 &&
+        scaleRatio(candles[1].close, candles[2].close) <= 1.10
+      ) ||
+      candles[0].high > Math.max(candles[1].high, candles[2].high) * wickMultiple ||
+      (
+        candles[0].low > 0 &&
+        candles[0].low < Math.min(candles[1].low, candles[2].low) / wickMultiple
+      )
+    )
   ) {
     anomalies.push({
       timestamp: candles[0].timestamp,
       index: 0,
-      type: 'edge_price_spike',
+      type: 'edge_price_or_wick_spike',
       score: null,
       returnBefore: null,
       returnAfter: Number((candles[1].close / candles[0].close - 1).toFixed(6)),
@@ -69,13 +78,22 @@ export function detectCandleAnomalies(candles, options = {}) {
   const last = candles.length - 1;
   if (
     candles.length >= 3 &&
-    scaleRatio(candles[last].close, candles[last - 1].close) >= 2 &&
-    scaleRatio(candles[last - 1].close, candles[last - 2].close) <= 1.10
+    (
+      (
+        scaleRatio(candles[last].close, candles[last - 1].close) >= 2 &&
+        scaleRatio(candles[last - 1].close, candles[last - 2].close) <= 1.10
+      ) ||
+      candles[last].high > Math.max(candles[last - 1].high, candles[last - 2].high) * wickMultiple ||
+      (
+        candles[last].low > 0 &&
+        candles[last].low < Math.min(candles[last - 1].low, candles[last - 2].low) / wickMultiple
+      )
+    )
   ) {
     anomalies.push({
       timestamp: candles[last].timestamp,
       index: last,
-      type: 'edge_price_spike',
+      type: 'edge_price_or_wick_spike',
       score: null,
       returnBefore: Number((candles[last].close / candles[last - 1].close - 1).toFixed(6)),
       returnAfter: null,
