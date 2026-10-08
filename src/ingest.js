@@ -6,6 +6,7 @@ import { normalizeSeries } from './normalize-series.js';
 import { normalizeCandles } from './normalize.js';
 import { assessCandleQuality } from './quality/index.js';
 import { auditContinuity } from './ingest/continuity.js';
+import { recordFailedIngestion, recordSuccessfulIngestion, persistCandles } from './ingest/persist.js';
 
 const providers = { yahoo: fetchYahoo, 'binance-us': fetchBinance, fred: fetchFred, synthetic: fetchSynthetic };
 const MAX_HISTORY_BARS = 10000;
@@ -76,13 +77,7 @@ export async function ingestDataset(db, dataset) {
     }
   } catch (error) {
     const message = String(error.message || error);
-    await db.prepare(
-      `INSERT INTO raw_ingestions
-       (dataset_id, provider, symbol, fetched_at, request_status, error)
-       VALUES (?, ?, ?, ?, 'error', ?)`
-    ).bind(
-      dataset.id, dataset.provider, dataset.symbol, fetchedAt, message
-    ).run();
+    await recordFailedIngestion(db, dataset, fetchedAt, message);
 
     console.error(JSON.stringify({
       event: 'ingestion_provider_failed',
@@ -146,20 +141,14 @@ export async function ingestDataset(db, dataset) {
 
   const acceptedCandles = quality.candles;
 
-  await db.prepare(
-    `INSERT INTO raw_ingestions
-     (dataset_id, provider, symbol, fetched_at, request_status, payload, row_count, normalized_count, rejected_count)
-     VALUES (?, ?, ?, ?, 'ok', ?, ?, ?, ?)`
-  ).bind(
+  await recordSuccessfulIngestion(
+    db,
     dataset.id,
-    result.provider,
-    result.symbol,
+    result,
     fetchedAt,
-    JSON.stringify(result.raw),
-    result.rows.length,
     acceptedCandles.length,
     normalized.rejected.length + quality.anomalies.length
-  ).run();
+  );
 
   console.log(JSON.stringify({
     event: 'ingestion_normalized',
@@ -171,36 +160,7 @@ export async function ingestDataset(db, dataset) {
     duplicatesRemoved: normalized.duplicatesRemoved
   }));
 
-  for (let i = 0; i < acceptedCandles.length; i += 100) {
-    const chunk = acceptedCandles.slice(i, i + 100);
-    const statement = db.prepare(
-      `INSERT INTO candles
-       (dataset_id, timestamp, open, high, low, close, volume)
-       VALUES (?, ?, ?, ?, ?, ?, ?)
-       ON CONFLICT(dataset_id, timestamp) DO UPDATE SET
-         open = excluded.open,
-         high = excluded.high,
-         low = excluded.low,
-         close = excluded.close,
-         volume = excluded.volume
-       WHERE candles.open IS NOT excluded.open
-          OR candles.high IS NOT excluded.high
-          OR candles.low IS NOT excluded.low
-          OR candles.close IS NOT excluded.close
-          OR candles.volume IS NOT excluded.volume`
-    );
-    await db.batch(chunk.map((c) => statement.bind(
-      dataset.id, c.timestamp, c.open, c.high, c.low, c.close, c.volume
-    )));
-  }
-
-  await db.prepare(
-    'UPDATE datasets SET updated_at = ? WHERE id = ?'
-  ).bind(fetchedAt, dataset.id).run();
-
-  const finalCount = await db.prepare(
-    'SELECT COUNT(*) AS count FROM candles WHERE dataset_id = ?'
-  ).bind(dataset.id).first();
+  const finalCount = await persistCandles(db, dataset.id, acceptedCandles, fetchedAt);
 
   const report = {
     datasetId: dataset.id,
