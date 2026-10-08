@@ -10,6 +10,7 @@ export const REFRESH_COOLDOWN_MS = Object.freeze({
 });
 
 const DEFAULT_COOLDOWN_MS = 60 * 60_000;
+export const FAILED_REFRESH_BACKOFF_MS = 5 * 60_000;
 
 export function cooldownForInterval(interval) {
   return REFRESH_COOLDOWN_MS[interval] ?? DEFAULT_COOLDOWN_MS;
