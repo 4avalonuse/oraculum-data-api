@@ -1,6 +1,6 @@
 import { ingestDataset } from './ingest.js';
 import { datasetView } from './contract.js';
-import { getRefreshCooldownState } from './cache/refresh-policy.js';
+import { getRefreshState, claimRefreshLease } from './cache/refresh-coordinator.js';
 
 const JSON_HEADERS = {
   'Content-Type': 'application/json; charset=utf-8',
@@ -80,18 +80,38 @@ export async function handleApi(request, env) {
     if (!dataset) return json({ ok: false, error: 'dataset_not_found' }, 404);
 
     const cachedRows = await readDataset(env.DB, id);
-    const cooldown = await getRefreshCooldownState(env.DB, dataset);
+    const cooldown = await getRefreshState(env.DB, dataset);
     if (cachedRows.length && cooldown.coolingDown) {
       return json({
         ...datasetView(dataset, cachedRows),
         refresh: {
           skipped: true,
-          reason: 'refresh_cooldown',
+          reason: cooldown.reason,
           cached: true,
           lastFetchedAt: cooldown.lastFetchedAt,
           nextRefreshAfterMs: cooldown.nextRefreshAfterMs
         }
       });
+    }
+
+    const leaseAcquired = await claimRefreshLease(env.DB, id);
+    if (!leaseAcquired) {
+      if (cachedRows.length) {
+        return json({
+          ...datasetView(dataset, cachedRows),
+          refresh: {
+            skipped: true,
+            reason: 'refresh_in_progress',
+            cached: true,
+            nextRefreshAfterMs: 1000
+          }
+        });
+      }
+      return json({
+        ok: false,
+        error: 'refresh_in_progress',
+        message: 'A refresh for this dataset is already in progress. Please retry shortly.'
+      }, 409);
     }
 
     const report = await ingestDataset(env.DB, {
