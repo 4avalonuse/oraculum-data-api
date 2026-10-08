@@ -1,5 +1,6 @@
 import { ingestDataset } from './ingest.js';
 import { datasetView } from './contract.js';
+import { getRecentSuccessfulIngestion, getRefreshCooldownState } from './cache/refresh-policy.js';
 
 const JSON_HEADERS = {
   'Content-Type': 'application/json; charset=utf-8',
@@ -27,30 +28,6 @@ async function readDataset(db, id) {
 
 async function datasetMeta(db, id) {
   return db.prepare('SELECT * FROM datasets WHERE id = ?').bind(id).first();
-}
-
-// Server-side refresh gate: opening/reloading the site should reuse D1 data.
-// Only fetch from the provider again after the interval-specific cooldown.
-const REFRESH_COOLDOWN_MS = {
-  '1m': 60_000,
-  '1h': 15 * 60_000,
-  '1d': 60 * 60_000,
-  '1w': 6 * 60 * 60_000,
-  '1M': 24 * 60 * 60_000
-};
-
-async function recentSuccessfulIngestion(db, id) {
-  return db.prepare(
-    "SELECT fetched_at FROM raw_ingestions WHERE dataset_id = ? AND request_status = 'ok' ORDER BY fetched_at DESC LIMIT 1"
-  ).bind(id).first();
-}
-
-async function refreshIsCoolingDown(db, dataset) {
-  const last = await recentSuccessfulIngestion(db, dataset.id);
-  if (!last?.fetched_at) return false;
-
-  const cooldown = REFRESH_COOLDOWN_MS[dataset.interval] ?? 60 * 60_000;
-  return Date.now() - Number(last.fetched_at) < cooldown;
 }
 
 export async function handleApi(request, env) {
@@ -103,16 +80,16 @@ export async function handleApi(request, env) {
     if (!dataset) return json({ ok: false, error: 'dataset_not_found' }, 404);
 
     const cachedRows = await readDataset(env.DB, id);
-    if (cachedRows.length && await refreshIsCoolingDown(env.DB, dataset)) {
-      const last = await recentSuccessfulIngestion(env.DB, id);
+    const cooldown = await getRefreshCooldownState(env.DB, dataset);
+    if (cachedRows.length && cooldown.coolingDown) {
       return json({
         ...datasetView(dataset, cachedRows),
         refresh: {
           skipped: true,
           reason: 'refresh_cooldown',
           cached: true,
-          lastFetchedAt: Number(last.fetched_at),
-          nextRefreshAfterMs: REFRESH_COOLDOWN_MS[dataset.interval] ?? 60 * 60_000
+          lastFetchedAt: cooldown.lastFetchedAt,
+          nextRefreshAfterMs: cooldown.nextRefreshAfterMs
         }
       });
     }
