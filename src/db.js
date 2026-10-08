@@ -119,12 +119,13 @@ async function initializeSchema(db) {
 
   for (const d of DATASETS) {
     const existingDataset = await db.prepare(
-      'SELECT provider, symbol FROM datasets WHERE id = ?'
+      'SELECT provider, symbol, kind FROM datasets WHERE id = ?'
     ).bind(d.id).first();
 
     if (existingDataset && (
       existingDataset.provider !== d.provider ||
-      existingDataset.symbol !== d.symbol
+      existingDataset.symbol !== d.symbol ||
+      existingDataset.kind !== (d.kind || 'ohlcv')
     )) {
       await db.prepare('DELETE FROM candles WHERE dataset_id = ?').bind(d.id).run();
     }
