@@ -42,6 +42,47 @@ export function detectCandleAnomalies(candles, options = {}) {
   const scale = robustScale(returns, center);
   const anomalies = [];
 
+  // Edge candles need explicit handling: the original detector only inspected
+  // interior candles, so a single bad first/last row could survive into D1
+  // and stretch FIT's price axis (for example 4253 surrounded by ~255).
+  const scaleRatio = (a, b) => {
+    if (!(a > 0) || !(b > 0)) return Infinity;
+    return Math.max(a, b) / Math.min(a, b);
+  };
+
+  if (
+    candles.length >= 3 &&
+    scaleRatio(candles[0].close, candles[1].close) >= 2 &&
+    scaleRatio(candles[1].close, candles[2].close) <= 1.10
+  ) {
+    anomalies.push({
+      timestamp: candles[0].timestamp,
+      index: 0,
+      type: 'edge_price_spike',
+      score: null,
+      returnBefore: null,
+      returnAfter: Number((candles[1].close / candles[0].close - 1).toFixed(6)),
+      action: 'exclude'
+    });
+  }
+
+  const last = candles.length - 1;
+  if (
+    candles.length >= 3 &&
+    scaleRatio(candles[last].close, candles[last - 1].close) >= 2 &&
+    scaleRatio(candles[last - 1].close, candles[last - 2].close) <= 1.10
+  ) {
+    anomalies.push({
+      timestamp: candles[last].timestamp,
+      index: last,
+      type: 'edge_price_spike',
+      score: null,
+      returnBefore: Number((candles[last].close / candles[last - 1].close - 1).toFixed(6)),
+      returnAfter: null,
+      action: 'exclude'
+    });
+  }
+
   for (let i = 1; i < candles.length - 1; i++) {
     const previous = candles[i - 1];
     const current = candles[i];
