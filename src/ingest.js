@@ -5,50 +5,10 @@ import { fetchSynthetic } from './providers/synthetic.js';
 import { normalizeSeries } from './normalize-series.js';
 import { normalizeCandles } from './normalize.js';
 import { assessCandleQuality } from './quality/index.js';
+import { auditContinuity } from './ingest/continuity.js';
 
 const providers = { yahoo: fetchYahoo, 'binance-us': fetchBinance, fred: fetchFred, synthetic: fetchSynthetic };
 const MAX_HISTORY_BARS = 10000;
-
-function expectedNextTimestamp(timestamp, interval) {
-  const date = new Date(timestamp);
-
-  switch (interval) {
-    case '1m': return timestamp + 60_000;
-    case '1h': return timestamp + 3_600_000;
-    case '1d': return timestamp + 86_400_000;
-    case '1w': return timestamp + 7 * 86_400_000;
-    case '1M': {
-      const next = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 1));
-      return next.getTime();
-    }
-    default: return null;
-  }
-}
-
-function auditContinuity(rows, interval) {
-  if (rows.length < 2) return { gaps: [], checked: rows.length };
-
-  const sorted = rows
-    .map((row) => Number(row.timestamp))
-    .filter(Number.isFinite)
-    .sort((a, b) => a - b);
-
-  const gaps = [];
-  for (let i = 1; i < sorted.length; i++) {
-    const previous = sorted[i - 1];
-    const current = sorted[i];
-    const expected = expectedNextTimestamp(previous, interval);
-    if (expected !== null && current > expected) {
-      gaps.push({
-        from: previous,
-        to: current,
-        missingMs: current - expected
-      });
-    }
-  }
-
-  return { gaps, checked: sorted.length };
-}
 
 export async function ingestDataset(db, dataset) {
   const startedAt = Date.now();
@@ -73,18 +33,18 @@ export async function ingestDataset(db, dataset) {
     ).bind(dataset.id).first();
     existingCount = Number(existing?.count || 0);
 
+    // Request full history only for a new dataset. Re-fetching 10k rows for
+    // every refresh creates unnecessary D1 writes, especially for series data.
     const historyBars = dataset.provider === 'synthetic'
       ? 500
-      : dataset.kind === 'series'
-        ? MAX_HISTORY_BARS
-        : (existingCount < MAX_HISTORY_BARS ? MAX_HISTORY_BARS : 1000);
+      : (existingCount === 0 ? MAX_HISTORY_BARS : 1000);
 
     console.log(JSON.stringify({
       event: 'ingestion_plan',
       datasetId: dataset.id,
       existingCount,
       requestedBars: historyBars,
-      mode: existingCount < MAX_HISTORY_BARS ? 'historical_backfill' : 'incremental_refresh'
+      mode: existingCount === 0 ? 'historical_backfill' : 'incremental_refresh'
     }));
 
     result = await fetcher({
@@ -222,7 +182,12 @@ export async function ingestDataset(db, dataset) {
          high = excluded.high,
          low = excluded.low,
          close = excluded.close,
-         volume = excluded.volume`
+         volume = excluded.volume
+       WHERE candles.open IS NOT excluded.open
+          OR candles.high IS NOT excluded.high
+          OR candles.low IS NOT excluded.low
+          OR candles.close IS NOT excluded.close
+          OR candles.volume IS NOT excluded.volume`
     );
     await db.batch(chunk.map((c) => statement.bind(
       dataset.id, c.timestamp, c.open, c.high, c.low, c.close, c.volume
