@@ -171,7 +171,7 @@ export async function ingestDataset(db, dataset) {
     anomalies: quality.anomalies.length,
     duplicatesRemoved: normalized.duplicatesRemoved,
     existingCount,
-    finalCount: Number(finalCount?.count || 0),
+    finalCount,
     continuityGaps: continuity.gaps.length,
     fetchedAt,
     durationMs: Date.now() - startedAt
