@@ -2,14 +2,20 @@ import { DATASETS } from '../datasets.js';
 
 // Synchronize only changed metadata. In particular, never upsert every
 // dataset on every Worker cold start: D1's free tier counts row writes.
+// Read the existing catalog in one query instead of issuing one sequential
+// SELECT per configured dataset, which made cold-start requests unnecessarily slow.
 export async function syncDatasetCatalog(db) {
   const now = Date.now();
+  const result = await db.prepare(
+    'SELECT id, name, provider, symbol, kind, interval, currency, description FROM datasets'
+  ).all();
+  const existingById = new Map(
+    (result.results || []).map((row) => [row.id, row])
+  );
 
   for (const dataset of DATASETS) {
     const kind = dataset.kind || 'ohlcv';
-    const existing = await db.prepare(
-      'SELECT id, name, provider, symbol, kind, interval, currency, description FROM datasets WHERE id = ?'
-    ).bind(dataset.id).first();
+    const existing = existingById.get(dataset.id);
 
     if (!existing) {
       await db.prepare(
