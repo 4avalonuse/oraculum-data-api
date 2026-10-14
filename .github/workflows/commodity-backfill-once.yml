@@ -1,5 +1,5 @@
 name: One-time commodity historical backfill
-# One-shot runner retry after provider-level FRED transient retries are deployed.
+# One-shot runner retry after browser-compatible FRED request headers are deployed.
 
 on:
   push:
