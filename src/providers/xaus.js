@@ -6,7 +6,7 @@ function utcDay(value) {
   return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
 }
 
-export async function fetchXaus({ symbol = 'XAUUSD' }) {
+export async function fetchXaus({ symbol = 'XAUUSD', historyBars = 1000 }) {
   if (symbol !== 'XAUUSD') throw new Error('xaus_unsupported_symbol');
 
   const headers = { 'User-Agent': 'Oraculum-Data-API/1.0', Accept: 'application/json' };
@@ -30,12 +30,17 @@ export async function fetchXaus({ symbol = 'XAUUSD' }) {
   }
 
   const historyPoints = Array.isArray(history.points) ? history.points : [];
-  const historyStart = utcDay(Date.now() - 548 * 86400000);
+  // An empty D1 dataset requests the complete history exposed by XAUS.
+  // Later manual refreshes only need the recent window; the older observations
+  // remain in D1 and are not deleted or re-downloaded on normal chart loads.
+  const fullHistory = Number(historyBars) >= 10000;
+  const historyStart = fullHistory ? null : utcDay(Date.now() - 548 * 86400000);
   const byDay = new Map();
   for (const point of historyPoints) {
     const timestamp = utcDay(point.d);
     const value = Number(point.c);
-    if (timestamp && timestamp >= historyStart && Number.isFinite(value) && value > 0) {
+    if (timestamp && (historyStart === null || timestamp >= historyStart) &&
+        Number.isFinite(value) && value > 0) {
       byDay.set(timestamp, { timestamp, value });
     }
   }
