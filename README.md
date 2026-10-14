@@ -5,9 +5,10 @@ Backend único de dados do Oraculum.
 ## Arquitetura
 
 ```
-Yahoo ──┐
-        ├──> Cloudflare Worker ──> D1
-Binance ┘             │
+Yahoo ─────┐
+Binance ───┤
+FRED ──────┼──> Cloudflare Worker ──> D1
+XAUS spot ┘             │
                       ├── RAW
                       └── NORMALIZED
                               │
@@ -31,7 +32,8 @@ Depois da normalização estrutural, datasets OHLCV passam por uma segunda camad
 
 - Yahoo Finance Chart: OHLCV via `/v8/finance/chart/{symbol}` e séries de contexto via `close`.
 - Binance Spot market data: klines via `/api/v3/klines`.
-- FRED: séries econômicas via CSV público, incluindo `CPIAUCSL`.
+- FRED: séries econômicas via CSV público, incluindo CPI (`CPIAUCSL`) e WTI spot (`DCOILWTICO`, fonte original EIA).
+- XAUS: cotação spot XAU/USD e histórico diário. O Oraculum registra apenas a série de preço e apresenta gráfico em linha, sem fabricar OHLC.
 
 Os adapters ficam em `src/providers/`, mas continuam fazendo parte do mesmo backend.
 
