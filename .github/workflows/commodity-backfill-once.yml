@@ -1,0 +1,78 @@
+name: One-time commodity historical backfill
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  backfill:
+    if: contains(github.event.head_commit.message, '[run-commodity-backfill]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    permissions:
+      contents: read
+    steps:
+      - name: Backfill gold and WTI once
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          backfill_dataset() {
+            local dataset_id="$1"
+            local attempt=1
+            local max_attempts=6
+            local body=""
+            local skipped=""
+            local error=""
+            local wait_ms=60000
+            local wait_seconds=60
+            local normalized=0
+            local final_count=0
+
+            while [ "$attempt" -le "$max_attempts" ]; do
+              echo "::group::${dataset_id} attempt ${attempt}/${max_attempts}"
+              body="$(curl --silent --show-error --max-time 180 \
+                -X POST \
+                "https://oraculum-data-api.4avalonuse.workers.dev/api/datasets/${dataset_id}/refresh")"
+              echo "$body" | jq -c .
+              skipped="$(echo "$body" | jq -r '.refresh.skipped // false')"
+              error="$(echo "$body" | jq -r '.error // empty')"
+
+              if [ "$skipped" = "true" ] || echo "$body" | jq -e '.retryAfterMs != null' >/dev/null 2>&1 || [ "$error" = "refresh_in_progress" ]; then
+                wait_ms="$(echo "$body" | jq -r '.refresh.nextRefreshAfterMs // .retryAfterMs // 15000')"
+                wait_seconds=$(( (wait_ms + 999) / 1000 + 3 ))
+                if [ "$wait_seconds" -lt 10 ]; then wait_seconds=10; fi
+                if [ "$wait_seconds" -gt 3600 ]; then wait_seconds=3600; fi
+                echo "Refresh is cooling down or already running; waiting ${wait_seconds}s before retry."
+                echo "::endgroup::"
+                sleep "$wait_seconds"
+                attempt=$((attempt + 1))
+                continue
+              fi
+
+              if [ -n "$error" ]; then
+                echo "Backfill failed for ${dataset_id}: ${error}" >&2
+                echo "::endgroup::"
+                return 1
+              fi
+
+              normalized="$(echo "$body" | jq -r '.refresh.normalized // 0')"
+              final_count="$(echo "$body" | jq -r '.refresh.finalCount // 0')"
+              if [ "$normalized" -gt 0 ] && [ "$final_count" -gt 0 ]; then
+                echo "Backfill complete: dataset=${dataset_id}, normalized=${normalized}, finalCount=${final_count}"
+                echo "::endgroup::"
+                return 0
+              fi
+
+              echo "No verified persisted rows reported for ${dataset_id}." >&2
+              echo "::endgroup::"
+              return 1
+            done
+
+            echo "Timed out waiting for refresh/backfill of ${dataset_id}." >&2
+            return 1
+          }
+
+          backfill_dataset "gold-spot-xaus-1d"
+          backfill_dataset "oil-wti-spot-fred-1d"
