@@ -1,4 +1,5 @@
 name: One-time commodity historical backfill
+# One-shot runner: executes only for a commit containing [run-commodity-backfill].
 
 on:
   push:
