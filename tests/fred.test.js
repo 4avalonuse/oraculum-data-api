@@ -44,3 +44,24 @@ test('FRED routine WTI refresh uses a bounded window', async () => {
     globalThis.fetch = originalFetch;
   }
 });
+
+test('FRED retries a transient server error', async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls += 1;
+    if (calls === 1) return new Response('temporary upstream failure', { status: 520 });
+    return new Response('observation_date,DCOILWTICO\\n2026-10-01,90.00\\n', {
+      status: 200,
+      headers: { 'Content-Type': 'text/csv' }
+    });
+  };
+
+  try {
+    const result = await fetchFred({ symbol: 'DCOILWTICO', historyBars: 1000 });
+    assert.equal(calls, 2);
+    assert.equal(result.rows[0].value, 90);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
