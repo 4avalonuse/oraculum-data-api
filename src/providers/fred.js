@@ -18,7 +18,12 @@ function parseCsv(text) {
 export async function fetchFred({ symbol }) {
   const url = new URL(BASE_URL);
   url.searchParams.set('id', symbol);
-  url.searchParams.set('cosd', '1900-01-01');
+  // Keep the first spot-series backfill bounded so two new commodity datasets
+  // cannot exhaust the D1 free-tier write allowance in one day.
+  const startDate = symbol === 'DCOILWTICO'
+    ? new Date(Date.now() - 548 * 86400000).toISOString().slice(0, 10)
+    : '1900-01-01';
+  url.searchParams.set('cosd', startDate);
   url.searchParams.set('coed', new Date().toISOString().slice(0, 10));
 
   const response = await fetch(url, {
