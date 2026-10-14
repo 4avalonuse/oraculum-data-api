@@ -27,7 +27,13 @@ export function datasetView(meta, rows) {
           ? 'Binance'
           : meta.provider === 'binance-us'
             ? 'Binance.US'
-            : meta.provider,
+            : meta.provider === 'xaus'
+              ? 'XAUS · Ouro spot'
+              : meta.provider === 'fred' && meta.symbol === 'DCOILWTICO'
+                ? 'EIA via FRED · WTI spot'
+                : meta.provider === 'fred'
+                  ? 'FRED'
+                  : meta.provider,
       updatedAt: meta.updated_at
     }
   };
