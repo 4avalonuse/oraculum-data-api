@@ -30,6 +30,39 @@ function parseGoldPayload(payload) {
   }
 }
 
+export async function getHistoricalBackfillState(db, dataset) {
+  if (!['gold-spot-xaus-1d', 'oil-wti-spot-fred-1d'].includes(dataset.id)) {
+    return { required: false, existingCount: null, oldestTimestamp: null };
+  }
+
+  const existing = await db.prepare(
+    'SELECT COUNT(*) AS count, MIN(timestamp) AS oldest_timestamp FROM candles WHERE dataset_id = ?'
+  ).bind(dataset.id).first();
+  const existingCount = Number(existing?.count || 0);
+  const oldestTimestamp = existing?.oldest_timestamp == null ? null : Number(existing.oldest_timestamp);
+
+  let required = existingCount === 0;
+  if (dataset.id === 'oil-wti-spot-fred-1d' && oldestTimestamp !== null) {
+    // WTI's official daily spot series starts on 1986-01-02 and has thousands
+    // of observations. Count and start-date checks catch quota-interrupted loads.
+    required ||= oldestTimestamp > Date.UTC(1986, 0, 2) || existingCount < 9500;
+  }
+  if (dataset.id === 'gold-spot-xaus-1d' && existingCount > 0) {
+    const prior = await db.prepare(
+      "SELECT payload FROM raw_ingestions WHERE dataset_id = ? AND request_status = 'ok' ORDER BY fetched_at DESC LIMIT 1"
+    ).bind(dataset.id).first();
+    const goldHistory = parseGoldPayload(prior?.payload);
+    if (goldHistory && oldestTimestamp !== null) {
+      required ||= oldestTimestamp > goldHistory.sourceStart + DAY_MS ||
+        existingCount < Math.max(1, goldHistory.sourceCount - 5);
+    } else if (oldestTimestamp !== null) {
+      required ||= oldestTimestamp > Date.now() - 3 * 365 * DAY_MS;
+    }
+  }
+
+  return { required, existingCount, oldestTimestamp };
+}
+
 export async function ingestDataset(db, dataset) {
   const startedAt = Date.now();
   const fetcher = providers[dataset.provider];
@@ -48,37 +81,11 @@ export async function ingestDataset(db, dataset) {
   let existingCount = 0;
 
   try {
-    const existing = await db.prepare(
-      'SELECT COUNT(*) AS count, MIN(timestamp) AS oldest_timestamp FROM candles WHERE dataset_id = ?'
-    ).bind(dataset.id).first();
-    existingCount = Number(existing?.count || 0);
-    const oldestTimestamp = existing?.oldest_timestamp == null ? null : Number(existing.oldest_timestamp);
+    const backfillState = await getHistoricalBackfillState(db, dataset);
+    existingCount = backfillState.existingCount ?? 0;
+    const oldestTimestamp = backfillState.oldestTimestamp;
+    const fullHistoryRequired = backfillState.required;
 
-    let fullHistoryRequired = existingCount === 0;
-    if (dataset.id === 'oil-wti-spot-fred-1d' && oldestTimestamp !== null) {
-      // The official WTI spot series starts on 1986-01-02 and has thousands
-      // of daily observations. Check both its beginning and a conservative
-      // count floor so a quota-interrupted partial backfill is retried.
-      fullHistoryRequired ||= oldestTimestamp > Date.UTC(1986, 0, 2) || existingCount < 9500;
-    }
-    if (dataset.id === 'gold-spot-xaus-1d' && existingCount > 0) {
-      // XAUS's raw history payload reveals the earliest available source point
-      // and expected point count. This detects partial caches/backfills without
-      // downloading the whole history on every subsequent manual refresh.
-      const prior = await db.prepare(
-        "SELECT payload FROM raw_ingestions WHERE dataset_id = ? AND request_status = 'ok' ORDER BY fetched_at DESC LIMIT 1"
-      ).bind(dataset.id).first();
-      const goldHistory = parseGoldPayload(prior?.payload);
-      if (goldHistory && oldestTimestamp !== null) {
-        fullHistoryRequired ||= oldestTimestamp > goldHistory.sourceStart + DAY_MS ||
-          existingCount < Math.max(1, goldHistory.sourceCount - 5);
-      } else if (oldestTimestamp !== null) {
-        fullHistoryRequired ||= oldestTimestamp > Date.now() - 3 * 365 * DAY_MS;
-      }
-    }
-
-    // Full historical backfill is only requested for an empty/partial cache.
-    // Routine refreshes use a bounded window; old rows remain stored in D1.
     const historyBars = dataset.provider === 'synthetic'
       ? 500
       : (fullHistoryRequired ? MAX_HISTORY_BARS : 1000);
