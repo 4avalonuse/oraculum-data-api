@@ -24,10 +24,22 @@ async function fetchCsv(symbol, startDate, endDate) {
   url.searchParams.set('id', symbol);
   url.searchParams.set('cosd', startDate);
   url.searchParams.set('coed', endDate);
-  const response = await fetch(url, { headers: HEADERS });
-  const text = await response.text();
-  if (!response.ok) throw new Error('fred_http_' + response.status);
-  return text;
+
+  let lastError;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const response = await fetch(url, { headers: HEADERS });
+      const text = await response.text();
+      if (response.ok) return text;
+      lastError = new Error('fred_http_' + response.status);
+      if (response.status < 500 || attempt === 2) throw lastError;
+    } catch (error) {
+      lastError = error;
+      if (attempt === 2 || !String(error.message || error).includes('fred_http_5')) throw error;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1000 * (2 ** attempt)));
+  }
+  throw lastError || new Error('fred_request_failed');
 }
 
 export async function fetchFred({ symbol, historyBars = 1000 }) {
