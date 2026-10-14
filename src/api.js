@@ -1,4 +1,4 @@
-import { ingestDataset } from './ingest.js';
+import { ingestDataset, getHistoricalBackfillState } from './ingest.js';
 import { datasetView } from './contract.js';
 import { getRefreshState, claimRefreshLease } from './cache/refresh-coordinator.js';
 
@@ -80,8 +80,11 @@ export async function handleApi(request, env) {
     if (!dataset) return json({ ok: false, error: 'dataset_not_found' }, 404);
 
     const cachedRows = await readDataset(env.DB, id);
+    // A partial historical commodity cache must be allowed to complete its
+    // one-time backfill even if a recent failed/partial refresh set a cooldown.
+    const backfillState = await getHistoricalBackfillState(env.DB, dataset);
     const cooldown = await getRefreshState(env.DB, dataset);
-    if (cooldown.coolingDown) {
+    if (cooldown.coolingDown && !backfillState.required) {
       if (cachedRows.length) {
         return json({
           ...datasetView(dataset, cachedRows),
