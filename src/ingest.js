@@ -1,6 +1,7 @@
 import { fetchYahoo } from './providers/yahoo.js';
 import { fetchBinance } from './providers/binance.js';
 import { fetchFred } from './providers/fred.js';
+import { fetchXaus } from './providers/xaus.js';
 import { fetchSynthetic } from './providers/synthetic.js';
 import { normalizeSeries } from './normalize-series.js';
 import { normalizeCandles } from './normalize.js';
@@ -8,7 +9,7 @@ import { assessCandleQuality } from './quality/index.js';
 import { auditContinuity } from './ingest/continuity.js';
 import { recordFailedIngestion, recordSuccessfulIngestion, persistCandles } from './ingest/persist.js';
 
-const providers = { yahoo: fetchYahoo, 'binance-us': fetchBinance, fred: fetchFred, synthetic: fetchSynthetic };
+const providers = { yahoo: fetchYahoo, 'binance-us': fetchBinance, fred: fetchFred, xaus: fetchXaus, synthetic: fetchSynthetic };
 const MAX_HISTORY_BARS = 10000;
 
 export async function ingestDataset(db, dataset) {
@@ -190,7 +191,7 @@ export async function ingestAll(db) {
   const result = await db.prepare(
     `SELECT id, provider, symbol, kind, interval
      FROM datasets
-     WHERE provider IN ('yahoo', 'binance-us', 'fred', 'synthetic')
+     WHERE provider IN ('yahoo', 'binance-us', 'fred', 'xaus', 'synthetic')
      ORDER BY id`
   ).all();
 
