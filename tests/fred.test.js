@@ -51,7 +51,7 @@ test('FRED retries a transient server error', async () => {
   globalThis.fetch = async () => {
     calls += 1;
     if (calls === 1) return new Response('temporary upstream failure', { status: 520 });
-    return new Response('observation_date,DCOILWTICO\\n2026-10-01,90.00\\n', {
+    return new Response('observation_date,DCOILWTICO\n2026-10-01,90.00\n', {
       status: 200,
       headers: { 'Content-Type': 'text/csv' }
     });
