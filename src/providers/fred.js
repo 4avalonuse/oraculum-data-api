@@ -1,5 +1,9 @@
 const BASE_URL = 'https://fred.stlouisfed.org/graph/fredgraph.csv';
-const HEADERS = { 'User-Agent': 'Oraculum-Data-API/1.0', Accept: 'text/csv' };
+const HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (compatible; OraculumDataAPI/1.0; +https://github.com/4avalonuse/oraculum-data-api)',
+  Accept: 'text/csv, text/plain, */*',
+  Referer: 'https://fred.stlouisfed.org/series/DCOILWTICO'
+};
 
 function parseCsv(text) {
   const lines = String(text || '').trim().split(/\r?\n/);
