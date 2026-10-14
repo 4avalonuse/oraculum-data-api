@@ -30,11 +30,14 @@ export async function fetchXaus({ symbol = 'XAUUSD' }) {
   }
 
   const historyPoints = Array.isArray(history.points) ? history.points : [];
+  const historyStart = utcDay(Date.now() - 548 * 86400000);
   const byDay = new Map();
   for (const point of historyPoints) {
     const timestamp = utcDay(point.d);
     const value = Number(point.c);
-    if (timestamp && Number.isFinite(value) && value > 0) byDay.set(timestamp, { timestamp, value });
+    if (timestamp && timestamp >= historyStart && Number.isFinite(value) && value > 0) {
+      byDay.set(timestamp, { timestamp, value });
+    }
   }
 
   const spotValue = Number(spot.spot_usd_oz ?? spot.xau?.price);
