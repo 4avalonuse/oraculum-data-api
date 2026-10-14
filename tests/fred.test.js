@@ -2,11 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { fetchFred } from '../src/providers/fred.js';
 
-test('FRED full WTI backfill starts at the beginning of the official daily series', async () => {
+test('FRED full WTI backfill uses date windows and skips missing observations', async () => {
   const originalFetch = globalThis.fetch;
-  let requestedUrl;
+  const requestedUrls = [];
   globalThis.fetch = async (input) => {
-    requestedUrl = new URL(String(input));
+    requestedUrls.push(new URL(String(input)));
     return new Response('observation_date,DCOILWTICO\n1986-01-02,25.56\n1986-01-03,.\n1986-01-06,26.00\n', {
       status: 200,
       headers: { 'Content-Type': 'text/csv' }
@@ -15,7 +15,9 @@ test('FRED full WTI backfill starts at the beginning of the official daily serie
 
   try {
     const result = await fetchFred({ symbol: 'DCOILWTICO', historyBars: 10000 });
-    assert.equal(requestedUrl.searchParams.get('cosd'), '1986-01-01');
+    assert.equal(requestedUrls[0].searchParams.get('cosd'), '1986-01-01');
+    assert.ok(requestedUrls.length >= 8, 'full history should be split into multiple smaller requests');
+    assert.equal(result.raw.chunks.length, requestedUrls.length);
     assert.deepEqual(result.rows.map((row) => row.value), [25.56, 26]);
     assert.equal(result.rows.length, 2);
   } finally {
