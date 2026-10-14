@@ -9,7 +9,6 @@ function buildOhlcvDatasets({ assetId, assetName, provider, symbol, currency, pr
   }));
 }
 
-
 function buildSyntheticDatasets() {
   return ['A', 'B', 'C'].flatMap((id) => buildOhlcvDatasets({
     assetId: `test-${id.toLowerCase()}`,
@@ -40,8 +39,8 @@ export const DATASETS = [
   ...buildOhlcvDatasets({ assetId: 'msft-usd', assetName: 'Microsoft / USD', provider: 'yahoo', symbol: 'MSFT', currency: 'USD', providerLabel: 'Yahoo Finance' }),
   ...buildOhlcvDatasets({ assetId: 'ibit-usd', assetName: 'iShares Bitcoin Trust / USD', provider: 'yahoo', symbol: 'IBIT', currency: 'USD', providerLabel: 'Yahoo Finance' }),
   buildSeriesDataset({ id: 'cpi-us', name: 'Inflação · CPI EUA', provider: 'fred', symbol: 'CPIAUCSL', interval: '1M', currency: 'USD', description: 'Consumer Price Index for All Urban Consumers, All Items, via BLS/FRED. Índice usado como deflator.' }),
-  ...buildOhlcvDatasets({ assetId: 'gold-usd', assetName: 'Ouro · USD/oz', provider: 'yahoo', symbol: 'GC=F', currency: 'USD', providerLabel: 'Yahoo Finance' }),
-  ...buildOhlcvDatasets({ assetId: 'oil-wti-usd', assetName: 'Petróleo WTI · USD/bbl', provider: 'yahoo', symbol: 'CL=F', currency: 'USD', providerLabel: 'Yahoo Finance' }),
+  buildSeriesDataset({ id: 'gold-spot-xaus-1d', name: 'Ouro spot · USD/oz', provider: 'xaus', symbol: 'XAUUSD', interval: '1d', currency: 'USD', description: 'Série diária spot XAU/USD; valores de fechamento/última cotação diária fornecidos pela XAUS.' }),
+  buildSeriesDataset({ id: 'oil-wti-spot-fred-1d', name: 'Petróleo WTI spot · USD/bbl', provider: 'fred', symbol: 'DCOILWTICO', interval: '1d', currency: 'USD', description: 'Preço spot diário WTI em Cushing, EIA via FRED; série de fechamento, sem OHLC intradiário.' }),
   ...buildOhlcvDatasets({ assetId: 'sp500-usd', assetName: 'S&P 500', provider: 'yahoo', symbol: '^GSPC', currency: 'USD', providerLabel: 'Yahoo Finance' }),
   ...buildOhlcvDatasets({ assetId: 'dxy-usd', assetName: 'Dólar · DXY', provider: 'yahoo', symbol: 'DX-Y.NYB', currency: 'USD', providerLabel: 'Yahoo Finance' }),
   buildSeriesDataset({ id: 'us-treasury-13w', name: 'US Treasury 13W', symbol: '^IRX', description: 'US Treasury 13-week yield from Yahoo Finance' }),
