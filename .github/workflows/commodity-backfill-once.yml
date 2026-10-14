@@ -1,5 +1,5 @@
 name: One-time commodity historical backfill
-# One-shot runner: executes only for a commit containing [run-commodity-backfill].
+# One-shot runner retry after provider-level FRED transient retries are deployed.
 
 on:
   push:
