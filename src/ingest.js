@@ -13,16 +13,18 @@ const providers = { yahoo: fetchYahoo, 'binance-us': fetchBinance, fred: fetchFr
 const MAX_HISTORY_BARS = 10000;
 const DAY_MS = 86400000;
 
-function goldSourceStart(payload) {
+function parseGoldPayload(payload) {
   try {
     const parsed = typeof payload === 'string' ? JSON.parse(payload) : payload;
-    const firstPoint = parsed?.history?.points?.[0];
-    const timestamp = firstPoint ? Date.parse(firstPoint.d) : NaN;
-    return Number.isFinite(timestamp) ? Date.UTC(
-      new Date(timestamp).getUTCFullYear(),
-      new Date(timestamp).getUTCMonth(),
-      new Date(timestamp).getUTCDate()
+    const points = parsed?.history?.points;
+    if (!Array.isArray(points) || !points.length) return null;
+    const firstTimestamp = Date.parse(points[0]?.d);
+    const sourceStart = Number.isFinite(firstTimestamp) ? Date.UTC(
+      new Date(firstTimestamp).getUTCFullYear(),
+      new Date(firstTimestamp).getUTCMonth(),
+      new Date(firstTimestamp).getUTCDate()
     ) : null;
+    return { sourceStart, sourceCount: points.length };
   } catch {
     return null;
   }
@@ -54,20 +56,22 @@ export async function ingestDataset(db, dataset) {
 
     let fullHistoryRequired = existingCount === 0;
     if (dataset.id === 'oil-wti-spot-fred-1d' && oldestTimestamp !== null) {
-      // The official WTI spot series starts on 1986-01-02. A partial recent
-      // cache must be backfilled once before routine bounded refreshes begin.
-      fullHistoryRequired ||= oldestTimestamp > Date.UTC(1986, 0, 2);
+      // The official WTI spot series starts on 1986-01-02 and has thousands
+      // of daily observations. Check both its beginning and a conservative
+      // count floor so a quota-interrupted partial backfill is retried.
+      fullHistoryRequired ||= oldestTimestamp > Date.UTC(1986, 0, 2) || existingCount < 9500;
     }
     if (dataset.id === 'gold-spot-xaus-1d' && existingCount > 0) {
-      // The previous raw payload contains XAUS's earliest available point.
-      // Compare it with the oldest cached row so partial caches are backfilled
-      // once, without forcing every later refresh to download all history.
+      // XAUS's raw history payload reveals the earliest available source point
+      // and expected point count. This detects partial caches/backfills without
+      // downloading the whole history on every subsequent manual refresh.
       const prior = await db.prepare(
         "SELECT payload FROM raw_ingestions WHERE dataset_id = ? AND request_status = 'ok' ORDER BY fetched_at DESC LIMIT 1"
       ).bind(dataset.id).first();
-      const sourceStart = goldSourceStart(prior?.payload);
-      if (sourceStart !== null && oldestTimestamp !== null) {
-        fullHistoryRequired ||= oldestTimestamp > sourceStart + DAY_MS;
+      const goldHistory = parseGoldPayload(prior?.payload);
+      if (goldHistory && oldestTimestamp !== null) {
+        fullHistoryRequired ||= oldestTimestamp > goldHistory.sourceStart + DAY_MS ||
+          existingCount < Math.max(1, goldHistory.sourceCount - 5);
       } else if (oldestTimestamp !== null) {
         fullHistoryRequired ||= oldestTimestamp > Date.now() - 3 * 365 * DAY_MS;
       }
