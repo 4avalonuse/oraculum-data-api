@@ -11,6 +11,22 @@ import { recordFailedIngestion, recordSuccessfulIngestion, persistCandles } from
 
 const providers = { yahoo: fetchYahoo, 'binance-us': fetchBinance, fred: fetchFred, xaus: fetchXaus, synthetic: fetchSynthetic };
 const MAX_HISTORY_BARS = 10000;
+const DAY_MS = 86400000;
+
+function goldSourceStart(payload) {
+  try {
+    const parsed = typeof payload === 'string' ? JSON.parse(payload) : payload;
+    const firstPoint = parsed?.history?.points?.[0];
+    const timestamp = firstPoint ? Date.parse(firstPoint.d) : NaN;
+    return Number.isFinite(timestamp) ? Date.UTC(
+      new Date(timestamp).getUTCFullYear(),
+      new Date(timestamp).getUTCMonth(),
+      new Date(timestamp).getUTCDate()
+    ) : null;
+  } catch {
+    return null;
+  }
+}
 
 export async function ingestDataset(db, dataset) {
   const startedAt = Date.now();
@@ -31,22 +47,45 @@ export async function ingestDataset(db, dataset) {
 
   try {
     const existing = await db.prepare(
-      'SELECT COUNT(*) AS count FROM candles WHERE dataset_id = ?'
+      'SELECT COUNT(*) AS count, MIN(timestamp) AS oldest_timestamp FROM candles WHERE dataset_id = ?'
     ).bind(dataset.id).first();
     existingCount = Number(existing?.count || 0);
+    const oldestTimestamp = existing?.oldest_timestamp == null ? null : Number(existing.oldest_timestamp);
 
-    // Request full history only for a new dataset. Re-fetching 10k rows for
-    // every refresh creates unnecessary D1 writes, especially for series data.
+    let fullHistoryRequired = existingCount === 0;
+    if (dataset.id === 'oil-wti-spot-fred-1d' && oldestTimestamp !== null) {
+      // The official WTI spot series starts on 1986-01-02. A partial recent
+      // cache must be backfilled once before routine bounded refreshes begin.
+      fullHistoryRequired ||= oldestTimestamp > Date.UTC(1986, 0, 2);
+    }
+    if (dataset.id === 'gold-spot-xaus-1d' && existingCount > 0) {
+      // The previous raw payload contains XAUS's earliest available point.
+      // Compare it with the oldest cached row so partial caches are backfilled
+      // once, without forcing every later refresh to download all history.
+      const prior = await db.prepare(
+        "SELECT payload FROM raw_ingestions WHERE dataset_id = ? AND request_status = 'ok' ORDER BY fetched_at DESC LIMIT 1"
+      ).bind(dataset.id).first();
+      const sourceStart = goldSourceStart(prior?.payload);
+      if (sourceStart !== null && oldestTimestamp !== null) {
+        fullHistoryRequired ||= oldestTimestamp > sourceStart + DAY_MS;
+      } else if (oldestTimestamp !== null) {
+        fullHistoryRequired ||= oldestTimestamp > Date.now() - 3 * 365 * DAY_MS;
+      }
+    }
+
+    // Full historical backfill is only requested for an empty/partial cache.
+    // Routine refreshes use a bounded window; old rows remain stored in D1.
     const historyBars = dataset.provider === 'synthetic'
       ? 500
-      : (existingCount === 0 ? MAX_HISTORY_BARS : 1000);
+      : (fullHistoryRequired ? MAX_HISTORY_BARS : 1000);
 
     console.log(JSON.stringify({
       event: 'ingestion_plan',
       datasetId: dataset.id,
       existingCount,
+      oldestTimestamp,
       requestedBars: historyBars,
-      mode: existingCount === 0 ? 'historical_backfill' : 'incremental_refresh'
+      mode: fullHistoryRequired ? 'historical_backfill' : 'incremental_refresh'
     }));
 
     result = await fetcher({
@@ -58,7 +97,7 @@ export async function ingestDataset(db, dataset) {
     // If a dataset changes provider identity (for example JUP-USD -> JUP29210-USD),
     // never mix the old series with the new one. The normalized D1 is rebuilt.
     const latestIngestion = await db.prepare(
-      'SELECT provider, symbol FROM raw_ingestions WHERE dataset_id = ? AND request_status = \'ok\' ORDER BY fetched_at DESC LIMIT 1'
+      "SELECT provider, symbol FROM raw_ingestions WHERE dataset_id = ? AND request_status = 'ok' ORDER BY fetched_at DESC LIMIT 1"
     ).bind(dataset.id).first();
     const identityChanged = latestIngestion && (
       latestIngestion.provider !== dataset.provider ||
